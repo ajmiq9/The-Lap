@@ -2,7 +2,9 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1A365D">
+<link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>The Lap</title>
@@ -68,7 +70,7 @@ body {
 
 /* CONTENT & NAV */
 .content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:8px}
-.bnav{height:var(--nav);background:var(--pri);display:flex;flex-shrink:0;position:relative;border-top:1px solid rgba(255,255,255,.06)}
+.bnav{height:calc(var(--nav) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--pri);display:flex;flex-shrink:0;position:relative;border-top:1px solid rgba(255,255,255,.06)}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;border:none;background:none;color:rgba(255,255,255,.38);cursor:pointer;
   transition:color .2s;position:relative;padding:0}
@@ -248,14 +250,13 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
 </head>
 <body>
 <div id="loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-  <div style="font-size:48px; margin-bottom:16px;">🧪</div>
-  <div style="font-size:18px; font-weight:700; color:var(--pri);">جاري إعداد التطبيق...</div>
+  <div class="spinner" style="font-size:56px; margin-bottom:16px;">🧪</div>
+  <div style="font-size:18px; font-weight:700; color:var(--pri); animation: pulse 1.5s infinite;">جاري استدعاء البيانات...</div>
   
-  <div style="position:absolute; bottom:150px; font-size:14px; font-weight:700; color:var(--acc); opacity:0.8; letter-spacing:0.5px;">
+  <div style="position:absolute; bottom:max(env(safe-area-inset-bottom), 30px); font-size:12px; font-weight:800; color:var(--acc); opacity:0.7; letter-spacing:1px; text-transform:uppercase;">
     Developed by Sultan
   </div>
 </div>
-
 
 <div id="app">
   <div class="hdr">
@@ -404,10 +405,10 @@ async function initApp() {
         }));
       }
 
-      // تحميل الأكوردات
+       // تحميل الأكوردات
       if(d.Accords) {
          ST.accords = d.Accords.map(a => ({
-            id: a.Accord_Id, name: a.Accord_Name, volume: parseFloat(a.Total_Volume_ml)||0,
+            id: a.Accord_Id, name: a.Accord_Name, note: a.Pyramid, volume: parseFloat(a.Total_Volume_ml)||0,
             conc: parseFloat(a.Concentration_pct)||0, saved: true,
             ingredients: JSON.parse(a.Ingredients_JSON || "[]")
          }));
@@ -635,8 +636,8 @@ function createAccord() {
   const acc = {id:uid(), name, note, volume, conc, ingredients:[], saved:false, internalConc:conc, actuals:{}};
   ST.accords.push(acc); closeSheet(); renderMain(); openAccordDetail(acc.id);
 }
-
 function openAccordDetail(id) { ST.curAccId = id; renderAccordView(); openView('dvAcc'); }
+
 function renderAccordView() {
   const acc = getAcc(ST.curAccId); if (!acc) return;
   document.getElementById('dvAccTitle').textContent = acc.name;
@@ -645,12 +646,13 @@ function renderAccordView() {
   const alcoholG = Math.max(0, acc.volume - oilGrams);
 
   let ingsHTML = acc.ingredients.map(ing => {
-    const targetG = oilGrams * ing.pct / 100;
+    const targetMg = (oilGrams * ing.pct / 100) * 1000;
     const matName = ing.matId ? (getMat(ing.matId)?.name || '—') : (ing.customName || '—');
-    return `<div style="background:var(--card);padding:12px;border-bottom:1px solid var(--bdr2)"><div class="row-flex" style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;flex:1">${matName}</span><button class="btn btn-danger btn-xs" onclick="removeAccIng('${ing.id}')">حذف</button></div><div class="g3"><div class="prod-cell"><div class="prod-cell-lbl">النسبة %</div><input class="fi-sm" type="number" value="${ing.pct}" onchange="updateAccIngPct('${ing.id}',+this.value)"></div><div class="prod-cell"><div class="prod-cell-lbl">المطلوب (g)</div><div class="prod-cell-val">${fmtN(targetG)}</div></div></div></div>`;
+    return `<div style="background:var(--card);padding:12px;border-bottom:1px solid var(--bdr2)"><div class="row-flex" style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;flex:1">${matName}</span><button class="btn btn-danger btn-xs" onclick="removeAccIng('${ing.id}')">حذف</button></div><div class="g3"><div class="prod-cell"><div class="prod-cell-lbl">النسبة %</div><input class="fi-sm" type="number" value="${ing.pct}" onchange="updateAccIngPct('${ing.id}',+this.value)"></div><div class="prod-cell"><div class="prod-cell-lbl">المطلوب (mg)</div><div class="prod-cell-val">${fmtN(targetMg,1)}</div></div></div></div>`;
   }).join('');
-  document.getElementById('dvAccBody').innerHTML = `<div class="sec-hdr"><span class="sec-title">المكونات</span><span class="sec-meta">${total}%</span></div>${ingsHTML}<div style="padding:12px"><button class="btn btn-ghost btn-block" onclick="openAddAccIngSheet()">+ إضافة مادة</button></div><div class="alc-box"><div class="alc-lbl">الكحول المطلوب</div><div class="alc-row"><div><div class="alc-val">${fmtN(alcoholG)}</div><div class="alc-unit">غرام</div></div></div></div><div style="padding:14px"><button class="btn btn-danger btn-block" onclick="deleteAccord('${ST.curAccId}')">🗑️ حذف هذه النوتة</button></div>`;
+  document.getElementById('dvAccBody').innerHTML = `<div class="sec-hdr"><span class="sec-title">المكونات</span><span class="sec-meta">${total}%</span></div>${ingsHTML}<div style="padding:12px"><button class="btn btn-ghost btn-block" onclick="openAddAccIngSheet()">+ إضافة مادة</button></div><div class="alc-box"><div class="alc-lbl">الكحول المطلوب</div><div class="alc-row"><div><div class="alc-val">${fmtN(alcoholG * 1000, 1)}</div><div class="alc-unit">mg</div></div></div></div><div style="padding:14px"><button class="btn btn-danger btn-block" onclick="deleteAccord('${ST.curAccId}')">🗑️ حذف هذه النوتة</button></div>`;
 }
+
 
 function openAddAccIngSheet() {
   openSheet(`<div class="bs-head"><span class="bs-title">إضافة مادة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div style="padding:0">${MATS.map(m=>`<div class="pick-item" onclick="quickAddAccIng('${m.id}','${m.name}')"><div class="mat-icon">${m.e}</div><div><div style="font-size:14px;font-weight:600">${m.name}</div></div></div>`).join('')}</div>`);
@@ -717,7 +719,39 @@ function renderFragBody() {
 }
 
 
-function selectVersion(vid) { ST.curVerId = vid; renderFragBody(); }
+function selectVersion(vid) { 
+  if (ST.curVerId === vid) {
+    const ver = getVer(ST.curFragId, vid);
+    openSheet(`
+      <div class="bs-head">
+        <span class="bs-title">تعديل رقم الصيغة</span>
+        <button class="close-btn" onclick="closeSheet()">✕</button>
+      </div>
+      <div class="bs-body">
+        <div class="fg">
+          <label class="fl">رقم الصيغة الحالي: ${ver.num}</label>
+          <input class="fi" type="number" id="newVerNum" placeholder="أدخل الرقم الجديد هنا" style="direction:ltr; text-align:center;">
+        </div>
+        <button class="btn btn-acc btn-block" onclick="applyNewVerNum('${vid}')">حفظ الرقم الجديد</button>
+      </div>
+    `);
+    return;
+  }
+  ST.curVerId = vid; 
+  renderFragBody(); 
+}
+
+function applyNewVerNum(vid) {
+  const newNumVal = document.getElementById('newVerNum').value;
+  if (newNumVal !== null && newNumVal.trim() !== '' && !isNaN(newNumVal)) {
+    const ver = getVer(ST.curFragId, vid);
+    ver.num = parseInt(newNumVal);
+    closeSheet();
+    renderFragBody();
+  } else {
+    snack('الرجاء إدخال رقم صحيح');
+  }
+}
 
 function renderVerInline() {
   const ver = getVer(ST.curFragId, ST.curVerId); if (!ver) return;
@@ -725,14 +759,20 @@ function renderVerInline() {
   const hearts = ver.ingredients.filter(i => getIngData(i)?.note==='Heart');
   const bases = ver.ingredients.filter(i => getIngData(i)?.note==='Base');
   const total = ver.ingredients.reduce((s,i)=>s+i.pct,0);
-  const buildPyrSec = (type, label, items) => {
+
+  const topPct = tops.reduce((s,i)=>s+i.pct,0);
+  const heartPct = hearts.reduce((s,i)=>s+i.pct,0);
+  const basePct = bases.reduce((s,i)=>s+i.pct,0);
+
+  const buildPyrSec = (type, label, items, secPct) => {
     if (!items.length) return '';
-    return `<div class="pyr-sec"><div class="pyr-head ${type}"><span class="pyr-lbl">${label}</span></div>${items.map(i => {
+    return `<div class="pyr-sec"><div class="pyr-head ${type}"><span class="pyr-lbl">${label} <span style="font-weight:800; opacity:0.8; margin-right:4px;">(${fmtN(secPct,1)}%)</span></span></div>${items.map(i => {
           const m = getIngData(i); if (!m) return '';
           return `<div class="ing-row" style="grid-template-columns:1fr 56px 28px 24px"><span class="ing-name">${m.isAcc?'🧬 ':m.e+' '}${m.name}</span><span class="ing-pct">${i.pct}%</span><button class="btn btn-ghost btn-xs" onclick="editIngPct('${i.id}','${ver.id}')">✎</button><button onclick="removeVerIng('${i.id}','${ver.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;font-weight:700">×</button></div>`;
         }).join('')}</div>`;
   };
-  document.getElementById('verContent').innerHTML = `<div style="padding:0 14px">${buildPyrSec('top','إفتتاحية',tops)}${buildPyrSec('heart','قلب',hearts)}${buildPyrSec('base','قاعدة',bases)}</div><div class="total-bar"><div><div class="total-lbl">مجموع النسب</div><div class="total-num">${fmtN(total,1)}%</div></div></div><div style="padding:0 14px 8px"><button class="btn btn-ghost btn-block" onclick="openAddIngSheet('${ver.id}')">+ إضافة مادة</button></div><div style="padding:14px; display:flex; gap:8px; border-top:1px solid var(--bdr2); margin-top:8px;"><button class="btn btn-danger" style="flex:1;" onclick="deleteVersion('${ST.curFragId}', '${ver.id}')">🗑️ حذف الصيغة</button><button class="btn btn-danger" style="flex:1; background:var(--red); color:#fff;" onclick="deleteFrag('${ST.curFragId}')">🗑️ حذف العطر</button></div>`;
+  
+  document.getElementById('verContent').innerHTML = `<div style="padding:0 14px">${buildPyrSec('top','إفتتاحية',tops, topPct)}${buildPyrSec('heart','قلب',hearts, heartPct)}${buildPyrSec('base','قاعدة',bases, basePct)}</div><div class="total-bar"><div><div class="total-lbl">مجموع النسب</div><div class="total-num">${fmtN(total,1)}%</div></div></div><div style="padding:0 14px 8px; display:flex; gap:8px;"><button class="btn btn-ghost" style="flex:1" onclick="openAddIngSheet('${ver.id}')">+ إضافة مادة</button><button class="btn btn-hdr" style="flex:1; background:var(--pri); color:#fff; border-color:var(--pri);" onclick="copyFormula('${ver.id}')">📋 نسخ الصيغة</button></div><div style="padding:14px; display:flex; gap:8px; border-top:1px solid var(--bdr2); margin-top:8px;"><button class="btn btn-danger" style="flex:1;" onclick="deleteVersion('${ST.curFragId}', '${ver.id}')">🗑️ حذف الصيغة</button><button class="btn btn-danger" style="flex:1; background:var(--red); color:#fff;" onclick="deleteFrag('${ST.curFragId}')">🗑️ حذف العطر</button></div>`;
 }
 
 function newVersion() {
@@ -832,19 +872,8 @@ function renderProdView() {
       workingIngredients = ver.ingredients;
   }
 
-  // للتجارب القديمة جداً التي تم حذف عطرها قبل التحديث
   if (!workingIngredients) {
-     document.getElementById('dvProdBody').innerHTML = `
-        <div class="empty-state" style="margin-top: 40px;">
-          <div class="empty-icon" style="color: var(--yel); opacity:1;">⚠️</div>
-          <div class="empty-text" style="font-size: 16px; font-weight: 700; color: var(--pri);">عطر أو صيغة محذوفة</div>
-          <div style="font-size: 13px; color: var(--t2); margin-top: 8px;">هذه التجربة قديمة ولم يتم حفظ نسخة من مكوناتها، والعطر الأساسي محذوف.</div>
-        </div>
-        <div style="padding:14px; display:flex; gap:8px; position: absolute; bottom: 0; left: 0; right: 0;">
-          <button class="btn btn-acc" style="flex:1" onclick="closeView('dvProd')">إغلاق</button>
-          <button class="btn btn-danger" style="flex:1" onclick="deleteProd('${ST.curProdId}')">🗑️ حذف نهائي</button>
-        </div>
-     `;
+     document.getElementById('dvProdBody').innerHTML = `<div class="empty-state" style="margin-top: 40px;"><div class="empty-icon" style="color: var(--yel); opacity:1;">⚠️</div><div class="empty-text" style="font-size: 16px; font-weight: 700; color: var(--pri);">عطر أو صيغة محذوفة</div><div style="font-size: 13px; color: var(--t2); margin-top: 8px;">هذه التجربة قديمة ولم يتم حفظ نسخة من مكوناتها.</div></div><div style="padding:14px; display:flex; gap:8px; position: absolute; bottom: 0; left: 0; right: 0;"><button class="btn btn-acc" style="flex:1" onclick="closeView('dvProd')">إغلاق</button><button class="btn btn-danger" style="flex:1" onclick="deleteProd('${ST.curProdId}')">🗑️ حذف نهائي</button></div>`;
      return;
   }
 
@@ -866,10 +895,12 @@ function renderProdView() {
      const baseIng = workingIngredients.find(x => x.id === ST.recalcMid);
      if (baseIng) {
          const baseActual = weightsObj[ST.recalcMid] || 0;
-         let baseTarget = oilG * baseIng.pct / 100;
+         let baseTargetG = oilG * baseIng.pct / 100;
          let aConc = isSnapshot ? baseIng.accConc : (getIngData(baseIng)?.acc?.conc);
-         if (baseIng.isAcc && aConc) baseTarget = baseTarget * 100 / aConc;
-         if (baseTarget > 0) ratio = baseActual / baseTarget;
+         if (baseIng.isAcc && aConc) baseTargetG = baseTargetG * 100 / aConc;
+         
+         const baseTargetMg = baseTargetG * 1000;
+         if (baseTargetMg > 0) ratio = baseActual / baseTargetMg;
      }
   }
 
@@ -879,31 +910,28 @@ function renderProdView() {
     let mName = isSnapshot ? i.name : (getIngData(i) ? getIngData(i).name : 'مادة غير معروفة');
     let mE = isSnapshot ? i.e : (getIngData(i) ? getIngData(i).e : '💧');
     
-    let baseTarget = oilG * i.pct / 100;
+    let baseTargetG = oilG * i.pct / 100;
     let aConc = isSnapshot ? i.accConc : (getIngData(i)?.acc?.conc);
-    if (i.isAcc && aConc) baseTarget = baseTarget * 100 / aConc;
+    if (i.isAcc && aConc) baseTargetG = baseTargetG * 100 / aConc;
     
-    let targetG = baseTarget * ratio; 
+    let baseTargetMg = baseTargetG * 1000;
+    let targetMg = baseTargetMg * ratio; 
     const actual = weightsObj[i.id] ?? '';
     
-    let targetHTML = `<div class="prod-cell-val">${fmtN(baseTarget,3)}</div>`;
+    let targetHTML = `<div class="prod-cell-val">${fmtN(baseTargetMg,1)}</div>`;
     if (ST.recalcMode && ST.recalcMid && ratio !== 1) {
-        const extra = targetG - baseTarget;
+        const extra = targetMg - baseTargetMg;
         if (i.id !== ST.recalcMid) {
-           targetHTML = `
-             <div class="prod-cell-val" style="text-decoration: line-through; opacity: 0.4; font-size: 11px;">${fmtN(baseTarget,3)}</div>
-             <div style="font-size:14px; font-weight:800; color:var(--pri); margin-top:2px">${fmtN(targetG,3)}</div>
-             <div style="font-size:10px; font-weight:800; color:var(--acc); margin-top:4px; direction:ltr; background:var(--acc-l); border-radius:4px; padding:3px 0;">أضف +${fmtN(extra,3)}</div>
-           `;
+           targetHTML = `<div class="prod-cell-val" style="text-decoration: line-through; opacity: 0.4; font-size: 11px;">${fmtN(baseTargetMg,1)}</div><div style="font-size:14px; font-weight:800; color:var(--pri); margin-top:2px">${fmtN(targetMg,1)}</div><div style="font-size:10px; font-weight:800; color:var(--acc); margin-top:4px; direction:ltr; background:var(--acc-l); border-radius:4px; padding:3px 0;">أضف +${fmtN(extra,1)}</div>`;
         } else {
-           targetHTML = `<div class="prod-cell-val">${fmtN(targetG,3)}</div><div style="font-size:10px; font-weight:700; color:var(--acc); margin-top:4px;">مادة الأساس</div>`;
+           targetHTML = `<div class="prod-cell-val">${fmtN(targetMg,1)}</div><div style="font-size:10px; font-weight:700; color:var(--acc); margin-top:4px;">مادة الأساس</div>`;
         }
     }
 
     let errHTML = '';
     if (actual !== '') {
-       const diff = actual - targetG;
-       const errPct = targetG > 0 ? (diff / targetG) * 100 : 0;
+       const diff = actual - targetMg;
+       const errPct = targetMg > 0 ? (diff / targetMg) * 100 : 0;
        const color = Math.abs(errPct) <= 2 ? 'var(--grn)' : (Math.abs(errPct) <= 5 ? 'var(--yel)' : 'var(--red)');
        const sign = diff > 0 ? '+' : '';
        errHTML = `<div style="font-size:11px; font-weight:800; color:${color}; margin-top:5px; text-align:center; direction:ltr">${sign}${errPct.toFixed(1)}%</div>`;
@@ -912,30 +940,11 @@ function renderProdView() {
     let bgStyle = (ST.recalcMode && ST.recalcMid === i.id) ? 'border: 2px solid var(--acc); background: var(--acc-l);' : '';
     let clickAct = ST.recalcMode ? `onclick="setRecalcBase('${i.id}')" style="cursor:pointer;"` : '';
 
-    return `<div class="prod-mat" ${clickAct} style="${bgStyle}">
-              <div class="row-flex">
-                <div class="mat-icon">${mE}</div>
-                <div style="flex:1">
-                  <div style="font-size:14px;font-weight:700">${mName}</div>
-                </div>
-              </div>
-              <div class="prod-grid">
-                <div class="prod-cell">
-                  <div class="prod-cell-lbl">المطلوب (g)</div>
-                  ${targetHTML}
-                </div>
-                <div class="prod-cell">
-                  <div class="prod-cell-lbl">المحقق (g)</div>
-                  <input class="fi-sm" type="number" value="${actual}" onchange="updateProdActual('${i.id}',this.value)" ${ST.recalcMode ? 'disabled' : ''}>
-                  ${errHTML}
-                </div>
-              </div>
-            </div>`;
+    return `<div class="prod-mat" ${clickAct} style="${bgStyle}"><div class="row-flex"><div class="mat-icon">${mE}</div><div style="flex:1"><div style="font-size:14px;font-weight:700">${mName}</div></div></div><div class="prod-grid"><div class="prod-cell"><div class="prod-cell-lbl">المطلوب (mg)</div>${targetHTML}</div><div class="prod-cell"><div class="prod-cell-lbl">المحقق (mg)</div><input class="fi-sm" type="number" value="${actual}" onchange="updateProdActual('${i.id}',this.value)" ${ST.recalcMode ? 'disabled' : ''}>${errHTML}</div></div></div>`;
   }).join('');
 
-  document.getElementById('dvProdBody').innerHTML = `<div class="sep"></div>${rowsHTML}<div class="alc-box" style="margin:12px 14px"><div class="alc-lbl">الكحول الصافي المطلوب</div><div class="alc-row"><div><div class="alc-val">${fmtN(totalAlcNeeded,3)}</div><div class="alc-unit">غرام</div></div></div></div><div style="padding:14px; display:flex; gap:8px"><button class="btn btn-acc" style="flex:1" onclick="closeView('dvProd')">إغلاق</button><button class="btn btn-danger" style="flex:1" onclick="deleteProd('${ST.curProdId}')">🗑️ حذف</button></div>`;
+  document.getElementById('dvProdBody').innerHTML = `<div class="sep"></div>${rowsHTML}<div class="alc-box" style="margin:12px 14px"><div class="alc-lbl">الكحول الصافي المطلوب</div><div class="alc-row"><div><div class="alc-val">${fmtN(totalAlcNeeded * 1000, 1)}</div><div class="alc-unit">mg</div></div></div></div><div style="padding:14px; display:flex; gap:8px"><button class="btn btn-acc" style="flex:1" onclick="closeView('dvProd')">إغلاق</button><button class="btn btn-danger" style="flex:1" onclick="deleteProd('${ST.curProdId}')">🗑️ حذف</button></div>`;
 }
-
 
 function updateProdActual(iid, v) { 
     const p = getProd(ST.curProdId);
@@ -978,7 +987,58 @@ function deleteProd(id) {
   renderMain();
   snack('تم الحذف 🗑️');
 }
-// --- إدارة النوافذ وزر التراجع الجذري (Hash Based) ---
+
+function copyFormula(vid) {
+  const f = getFrag(ST.curFragId);
+  const ver = getVer(f.id, vid);
+  const tops = ver.ingredients.filter(i => getIngData(i)?.note==='Top');
+  const hearts = ver.ingredients.filter(i => getIngData(i)?.note==='Heart');
+  const bases = ver.ingredients.filter(i => getIngData(i)?.note==='Base');
+
+  const topPct = tops.reduce((s,i)=>s+i.pct,0);
+  const heartPct = hearts.reduce((s,i)=>s+i.pct,0);
+  const basePct = bases.reduce((s,i)=>s+i.pct,0);
+
+  const formatSection = (title, items, pct) => {
+    if(!items.length) return '';
+    let text = `\n​${title} (تمثل ${fmtN(pct,1)}%):\n`;
+    items.forEach(i => {
+      const m = getIngData(i);
+      const mName = m ? m.name : 'مادة غير معروفة';
+      text += `• ${mName}: ${fmtN(i.pct,1)}%\n`;
+    });
+    return text;
+  };
+
+  let out = `صيغة "${f.name}" #${ver.num} (الزيت العطري الخام 100%)\n`;
+  out += formatSection('الإفتتاحية', tops, topPct);
+  out += formatSection('القلب', hearts, heartPct);
+  out += formatSection('القاعدة', bases, basePct);
+
+  // استخدام نظام النسخ البديل لضمان عمله داخل التطبيقات والمحررات
+  fallbackCopyTextToClipboard(out.trim());
+}
+
+function fallbackCopyTextToClipboard(text) {
+  var textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.top = "0";
+  textArea.style.left = "0";
+  textArea.style.position = "fixed";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try {
+    var successful = document.execCommand('copy');
+    if(successful) snack('✅ تم نسخ الصيغة بنجاح');
+    else snack('❌ فشل النسخ');
+  } catch (err) {
+    snack('❌ جهازك يمنع النسخ المباشر');
+  }
+  document.body.removeChild(textArea);
+}
+
+// --- إدارة النوافذ وزر التراجع الجذري وحماية الخروج (PWA) ---
 let skipHash = false;
 
 function openSheet(html) { 
@@ -1014,33 +1074,48 @@ function closeView(id) {
     }
 }
 
-// مراقب التراجع الجذري
-window.addEventListener('hashchange', function() {
+// مراقب التراجع الجذري + حماية الخروج
+window.addEventListener('popstate', function(e) {
     if (skipHash) return;
     skipHash = true;
     
     if (!location.hash || location.hash === '') {
-        // إذا رجعنا للرئيسية، صكر كل شيء
-        document.querySelectorAll('.open').forEach(el => el.classList.remove('open'));
+        // هل نحن في الحالة الحارسة (Root) التي أنشأناها؟
+        if (e.state && e.state.root) {
+            // رجعنا للشاشة الرئيسية من نافذة -> أغلق النوافذ
+            document.querySelectorAll('.open').forEach(el => el.classList.remove('open'));
+        } else {
+            // المستخدم ضغط تراجع وهو في الشاشة الرئيسية أصلاً!
+            if (confirm('هل أنت متأكد أنك تريد الخروج من التطبيق؟')) {
+                history.back(); // السماح بالخروج
+            } else {
+                // إلغاء الخروج وإعادة بناء الجدار
+                history.pushState({ root: true }, '');
+            }
+        }
     } else if (location.hash.startsWith('#view-')) {
-        // إذا رجعنا لشاشة عادية من نافذة سفلية، صكر النافذة السفلية فقط
+        // إغلاق النافذة السفلية فقط
         document.getElementById('overlay').classList.remove('open');
     }
     
     setTimeout(() => skipHash = false, 50);
 });
 
-// تصفير الهاش عند التشغيل
-if (location.hash) {
-    skipHash = true;
-    location.hash = '';
-    setTimeout(() => skipHash = false, 50);
+// تسجيل Service Worker للـ PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>console.log('SW failed'));
+  });
 }
-// ---------------------------------
-
 
 // INITIALIZE APP
-window.onload = initApp;
+window.onload = function() {
+    initApp();
+    // إنشاء جدار حماية الخروج عند فتح التطبيق
+    if (!location.hash) {
+        history.replaceState({ root: true }, '');
+    }
+};
 </script>
 </body>
 </html>
