@@ -1156,89 +1156,68 @@ function deleteProd(id) {
 }
 
 /* ============================================================
-   إدارة النوافذ – نظام Hash Navigation
-   لا يتم تغيير منطق هذا النظام
+   إدارة النوافذ وزر التراجع وحماية الخروج (محدثة وذكية)
    ============================================================ */
 let skipHash = false;
 
-function openSheet(html) {
-  document.getElementById('bsContent').innerHTML = html;
-  document.getElementById('overlay').classList.add('open');
-  if (!skipHash) location.hash = 'sheet';
+function openSheet(html) { 
+    document.getElementById('bsContent').innerHTML = html; 
+    document.getElementById('overlay').classList.add('open'); 
+    if(!skipHash) location.hash = 'sheet'; 
 }
 
-function closeSheet() {
-  document.getElementById('overlay').classList.remove('open');
-  if (!skipHash && location.hash === '#sheet') {
+function closeSheet() { 
+    document.getElementById('overlay').classList.remove('open'); 
+    if (!skipHash && location.hash === '#sheet') {
+        skipHash = true; 
+        history.back(); 
+        setTimeout(() => skipHash = false, 50);
+    }
+}
+
+function handleOvClick(e) { 
+    if (e.target === document.getElementById('overlay')) closeSheet(); 
+}
+
+function openView(id) { 
+    document.getElementById(id).classList.add('open'); 
+    if(!skipHash) location.hash = 'view-' + id; 
+}
+
+function closeView(id) { 
+    document.getElementById(id).classList.remove('open'); 
+    if (!skipHash && location.hash.startsWith('#view-')) {
+        skipHash = true; 
+        history.back(); 
+        setTimeout(() => skipHash = false, 50);
+    }
+}
+
+// المراقب الذكي (يدمج بين التراجع العادي وحماية الخروج)
+window.addEventListener('popstate', function(e) {
+    if (skipHash) return;
     skipHash = true;
-    history.back();
-    setTimeout(() => skipHash = false, 50);
-  }
-}
-
-function handleOvClick(e) {
-  if (e.target === document.getElementById('overlay')) closeSheet();
-}
-
-function openView(id) {
-  document.getElementById(id).classList.add('open');
-  if (!skipHash) location.hash = 'view-' + id;
-}
-
-function closeView(id) {
-  document.getElementById(id).classList.remove('open');
-  if (!skipHash && location.hash.startsWith('#view-')) {
-    skipHash = true;
-    history.back();
-    setTimeout(() => skipHash = false, 50);
-  }
-}
-
-/* مراقب التراجع – يغلق أي شاشة مفتوحة عند الضغط على زر الرجوع */
-window.addEventListener('hashchange', function () {
-  if (skipHash) return;
-  skipHash = true;
-  if (!location.hash || location.hash === '') {
-    document.querySelectorAll('.open').forEach(el => el.classList.remove('open'));
-  } else if (location.hash.startsWith('#view-')) {
-    document.getElementById('overlay').classList.remove('open');
-  }
-  setTimeout(() => skipHash = false, 50);
-});
-
-/* تصفير الهاش عند التشغيل */
-if (location.hash) {
-  skipHash = true;
-  location.hash = '';
-  setTimeout(() => skipHash = false, 50);
-}
-
-/* ============================================================
-   منع الخروج المفاجئ من التطبيق (Exit Guard)
-   عند الضغط على زر الرجوع من الشاشة الرئيسية
-   ============================================================ */
-function setupExitGuard() {
-  /* دفع حالة حارسة لتكون أول ما يُرجع إليه */
-  history.pushState({ lapGuard: true }, '');
-
-  window.addEventListener('popstate', function () {
-    /* تأخير صغير للسماح لـ hashchange بإغلاق أي شاشة مفتوحة أولاً */
-    setTimeout(function () {
-      /* تحقق: هل كل الشاشات مغلقة وليس هناك هاش نشط؟ */
-      const noOpenViews = !document.querySelector('.fsv.open');
-      const noSheet     = !document.getElementById('overlay').classList.contains('open');
-      const noHash      = !location.hash;
-
-      if (noOpenViews && noSheet && noHash) {
-        /* أعد دفع الحالة الحارسة ثم اسأل المستخدم */
-        history.pushState({ lapGuard: true }, '');
-        if (confirm('هل أنت متأكد أنك تريد الخروج من التطبيق؟')) {
-          history.back(); /* خروج حقيقي */
+    
+    if (!location.hash || location.hash === '') {
+        if (e.state && e.state.root) {
+            // رجعنا للشاشة الرئيسية من نافذة داخلية -> أغلق النوافذ فقط بصمت
+            document.querySelectorAll('.open').forEach(el => el.classList.remove('open'));
+        } else {
+            // ضغط تراجع وهو أساساً في الشاشة الرئيسية -> اسأله للخروج
+            if (confirm('هل أنت متأكد أنك تريد الخروج من التطبيق؟')) {
+                history.back(); // خروج حقيقي
+            } else {
+                // إلغاء الخروج وإعادة حماية الشاشة
+                history.pushState({ root: true }, '');
+            }
         }
-      }
-    }, 80);
-  });
-}
+    } else if (location.hash.startsWith('#view-')) {
+        // إغلاق النافذة السفلية فقط
+        document.getElementById('overlay').classList.remove('open');
+    }
+    
+    setTimeout(() => skipHash = false, 50);
+});
 
 /* ============================================================
    تسجيل Service Worker (PWA)
@@ -1256,7 +1235,10 @@ if ('serviceWorker' in navigator) {
    ============================================================ */
 window.onload = function () {
   initApp();
-  setupExitGuard();
+  // تهيئة جدار الحماية للشاشة الرئيسية بصمت
+  if (!location.hash) {
+      history.replaceState({ root: true }, ''); 
+  }
 };
 </script>
 </body>
