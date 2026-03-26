@@ -1113,9 +1113,10 @@ window.onload = function() {
     initApp();
     // إنشاء جدار حماية الخروج عند فتح التطبيق
     if (!location.hash) {
-        history.replaceState({ root: true }, '');
+        history.pushState({ root: true }, '');
     }
 };
+
 </script>
 </body>
 </html>
