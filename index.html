@@ -294,7 +294,7 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
   </nav>
 </div>
 
-<div class="fsv" id="dvMat">
+<div class="fsv" id="dvMat" style="z-index: 130;">
   <div class="fsv-head">
     <button class="back-btn" onclick="closeView('dvMat')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -304,7 +304,7 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
   <div class="fsv-body" id="dvMatBody"></div>
 </div>
 
-<div class="fsv" id="dvFrag">
+<div class="fsv" id="dvFrag" style="z-index: 100;">
   <div class="fsv-head">
     <button class="back-btn" onclick="closeView('dvFrag')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -318,7 +318,7 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
   <div class="fsv-body" id="dvFragBody"></div>
 </div>
 
-<div class="fsv" id="dvVer" style="z-index:110">
+<div class="fsv" id="dvVer" style="z-index: 110;">
   <div class="fsv-head">
     <button class="back-btn" onclick="closeView('dvVer')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -328,7 +328,7 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
   <div class="fsv-body" id="dvVerBody"></div>
 </div>
 
-<div class="fsv" id="dvAcc" style="z-index:105">
+<div class="fsv" id="dvAcc" style="z-index: 105;">
   <div class="fsv-head">
     <button class="back-btn" onclick="closeView('dvAcc')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -339,7 +339,7 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
   <div class="fsv-body" id="dvAccBody"></div>
 </div>
 
-<div class="fsv" id="dvProd" style="z-index:115">
+<div class="fsv" id="dvProd" style="z-index: 115;">
   <div class="fsv-head">
     <button class="back-btn" onclick="closeView('dvProd')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -648,7 +648,11 @@ function renderAccordView() {
   let ingsHTML = acc.ingredients.map(ing => {
     const targetMg = (oilGrams * ing.pct / 100) * 1000;
     const matName = ing.matId ? (getMat(ing.matId)?.name || '—') : (ing.customName || '—');
-    return `<div style="background:var(--card);padding:12px;border-bottom:1px solid var(--bdr2)"><div class="row-flex" style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;flex:1">${matName}</span><button class="btn btn-danger btn-xs" onclick="removeAccIng('${ing.id}')">حذف</button></div><div class="g3"><div class="prod-cell"><div class="prod-cell-lbl">النسبة %</div><input class="fi-sm" type="number" value="${ing.pct}" onchange="updateAccIngPct('${ing.id}',+this.value)"></div><div class="prod-cell"><div class="prod-cell-lbl">المطلوب (mg)</div><div class="prod-cell-val">${fmtN(targetMg,1)}</div></div></div></div>`;
+    
+    // المادة قابلة للضغط داخل الأكورد
+    const clickAct = ing.matId ? `onclick="openMatDetail('${ing.matId}')" style="cursor:pointer; color:var(--pri); text-decoration:underline; text-decoration-color:var(--bdr); text-underline-offset:4px;"` : '';
+    
+    return `<div style="background:var(--card);padding:12px;border-bottom:1px solid var(--bdr2)"><div class="row-flex" style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;flex:1" ${clickAct}>${matName}</span><button class="btn btn-danger btn-xs" onclick="removeAccIng('${ing.id}')">حذف</button></div><div class="g3"><div class="prod-cell"><div class="prod-cell-lbl">النسبة %</div><input class="fi-sm" type="number" value="${ing.pct}" onchange="updateAccIngPct('${ing.id}',+this.value)"></div><div class="prod-cell"><div class="prod-cell-lbl">المطلوب (mg)</div><div class="prod-cell-val">${fmtN(targetMg,1)}</div></div></div></div>`;
   }).join('');
   document.getElementById('dvAccBody').innerHTML = `<div class="sec-hdr"><span class="sec-title">المكونات</span><span class="sec-meta">${total}%</span></div>${ingsHTML}<div style="padding:12px"><button class="btn btn-ghost btn-block" onclick="openAddAccIngSheet()">+ إضافة مادة</button></div><div class="alc-box"><div class="alc-lbl">الكحول المطلوب</div><div class="alc-row"><div><div class="alc-val">${fmtN(alcoholG * 1000, 1)}</div><div class="alc-unit">mg</div></div></div></div><div style="padding:14px"><button class="btn btn-danger btn-block" onclick="deleteAccord('${ST.curAccId}')">🗑️ حذف هذه النوتة</button></div>`;
 }
@@ -768,7 +772,11 @@ function renderVerInline() {
     if (!items.length) return '';
     return `<div class="pyr-sec"><div class="pyr-head ${type}"><span class="pyr-lbl">${label} <span style="font-weight:800; opacity:0.8; margin-right:4px;">(${fmtN(secPct,1)}%)</span></span></div>${items.map(i => {
           const m = getIngData(i); if (!m) return '';
-          return `<div class="ing-row" style="grid-template-columns:1fr 56px 28px 24px"><span class="ing-name">${m.isAcc?'🧬 ':m.e+' '}${m.name}</span><span class="ing-pct">${i.pct}%</span><button class="btn btn-ghost btn-xs" onclick="editIngPct('${i.id}','${ver.id}')">✎</button><button onclick="removeVerIng('${i.id}','${ver.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;font-weight:700">×</button></div>`;
+          
+          // التوجيه الصحيح بالاعتماد على نوع المادة
+          const clickAction = m.isAcc ? `openAccordDetail('${i.accId}')` : `openMatDetail('${i.mid}')`;
+          
+          return `<div class="ing-row" style="grid-template-columns:1fr 56px 28px 24px"><span class="ing-name" onclick="${clickAction}" style="cursor:pointer; color:var(--pri); text-decoration:underline; text-decoration-color:var(--bdr); text-underline-offset:4px;">${m.isAcc?'🧬 ':m.e+' '}${m.name}</span><span class="ing-pct">${i.pct}%</span><button class="btn btn-ghost btn-xs" onclick="editIngPct('${i.id}','${ver.id}')">✎</button><button onclick="removeVerIng('${i.id}','${ver.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;font-weight:700">×</button></div>`;
         }).join('')}</div>`;
   };
   
@@ -810,10 +818,27 @@ function openAddIngSheet(vid) {
 function addIngToVer(vid, mid) { getVer(ST.curFragId, vid).ingredients.push({id:uid(), mid, pct:5}); closeSheet(); renderVerInline(); }
 function addAccToVer(vid, aid) { getVer(ST.curFragId, vid).ingredients.push({id:uid(), mid:'acc:'+aid, accId:aid, pct:5, isAcc:true}); closeSheet(); renderVerInline(); }
 function removeVerIng(iid, vid) { getVer(ST.curFragId, vid).ingredients = getVer(ST.curFragId, vid).ingredients.filter(i=>i.id!==iid); renderVerInline(); }
+
+// التعديل 1: ظهور مباشر للكيبورد وتحديد الرقم
 function editIngPct(iid, vid) {
   const ing = getVer(ST.curFragId, vid).ingredients.find(i=>i.id===iid);
-  openSheet(`<div class="bs-head"><span class="bs-title">تعديل النسبة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body"><input class="fi" type="number" id="ingPctVal" value="${ing.pct}"><br><br><button class="btn btn-acc btn-block" onclick="applyIngPct('${iid}','${vid}')">تطبيق</button></div>`);
+  openSheet(`
+    <div class="bs-head"><span class="bs-title">تعديل النسبة</span><button class="close-btn" onclick="closeSheet()">✕</button></div>
+    <div class="bs-body" style="padding-bottom: 35vh; display: flex; flex-direction: column; gap: 14px;">
+      <input class="fi" type="number" id="ingPctVal" value="${ing.pct}" style="text-align:center; font-size:24px; font-weight:800; padding:15px;">
+      <button class="btn btn-acc btn-block" style="padding:15px; font-size:16px;" onclick="applyIngPct('${iid}','${vid}')">تأكيد النسبة ✓</button>
+    </div>
+  `);
+  
+  const input = document.getElementById('ingPctVal');
+  if(input) {
+     input.focus();
+     input.select();
+     // تأخير ضئيل جداً لضمان تجاوب متصفحات الجوال دون ملاحظة المستخدم
+     setTimeout(() => { input.focus(); input.select(); }, 10);
+  }
 }
+
 function applyIngPct(iid, vid) { getVer(ST.curFragId, vid).ingredients.find(i=>i.id===iid).pct = +document.getElementById('ingPctVal').value; closeSheet(); renderVerInline(); }
 
 /* PRODUCTIONS & ALCOHOL MATH */
@@ -1038,20 +1063,68 @@ function fallbackCopyTextToClipboard(text) {
   document.body.removeChild(textArea);
 }
 
-// --- إدارة النوافذ وزر التراجع الجذري وحماية الخروج (PWA) ---
+// التعديل 2: إعادة كتابة نظام التوجيه وزر التراجع بشكل جذري ليفهم الطبقات
 let skipHash = false;
+
+window.addEventListener('popstate', function(e) {
+    if (skipHash) return;
+    skipHash = true;
+
+    // 1. هل توجد نافذة منبثقة من الأسفل مفتوحة؟ اغلقها أولاً
+    const overlay = document.getElementById('overlay');
+    if (overlay.classList.contains('open')) {
+        overlay.classList.remove('open');
+    } else {
+        // 2. إذا لم يكن، ابحث عن أعلى شاشة كاملة (fsv) مفتوحة وأغلقها بناءً على z-index
+        const openViews = Array.from(document.querySelectorAll('.fsv.open'));
+        if (openViews.length > 0) {
+            openViews.sort((a,b) => (parseInt(getComputedStyle(a).zIndex) || 0) - (parseInt(getComputedStyle(b).zIndex) || 0));
+            const topView = openViews[openViews.length - 1];
+            topView.classList.remove('open');
+        }
+    }
+
+    // 3. حماية الخروج من التطبيق إذا وصلنا للشاشة الرئيسية
+    if (!location.hash || location.hash === '') {
+        document.querySelectorAll('.fsv.open').forEach(el => el.classList.remove('open'));
+        
+        if (!e.state || !e.state.root) {
+            if (confirm('هل أنت متأكد أنك تريد الخروج من التطبيق؟')) {
+                history.back();
+            } else {
+                history.pushState({ root: true }, '');
+            }
+        }
+    }
+
+    setTimeout(() => skipHash = false, 50);
+});
+
+function openView(id) { 
+    document.getElementById(id).classList.add('open'); 
+    if(!skipHash) history.pushState({view: id}, '', '#view-' + id);
+}
+
+function closeView(id) { 
+    document.getElementById(id).classList.remove('open'); 
+    if (!skipHash) {
+        skipHash = true;
+        history.back();
+        setTimeout(() => skipHash = false, 50);
+    }
+}
 
 function openSheet(html) { 
     document.getElementById('bsContent').innerHTML = html; 
     document.getElementById('overlay').classList.add('open'); 
-    if(!skipHash) location.hash = 'sheet'; 
+    if(!skipHash) history.pushState({sheet: true}, '', '#sheet');
 }
 
 function closeSheet() { 
     document.getElementById('overlay').classList.remove('open'); 
-    if (!skipHash && location.hash === '#sheet') {
-        skipHash = true; 
-        history.back(); 
+    if (!skipHash) {
+        skipHash = true;
+        history.back();
         setTimeout(() => skipHash = false, 50);
     }
 }
@@ -1059,47 +1132,6 @@ function closeSheet() {
 function handleOvClick(e) { 
     if (e.target === document.getElementById('overlay')) closeSheet(); 
 }
-
-function openView(id) { 
-    document.getElementById(id).classList.add('open'); 
-    if(!skipHash) location.hash = 'view-' + id; 
-}
-
-function closeView(id) { 
-    document.getElementById(id).classList.remove('open'); 
-    if (!skipHash && location.hash.startsWith('#view-')) {
-        skipHash = true; 
-        history.back(); 
-        setTimeout(() => skipHash = false, 50);
-    }
-}
-
-// مراقب التراجع الجذري + حماية الخروج
-window.addEventListener('popstate', function(e) {
-    if (skipHash) return;
-    skipHash = true;
-    
-    if (!location.hash || location.hash === '') {
-        // هل نحن في الحالة الحارسة (Root) التي أنشأناها؟
-        if (e.state && e.state.root) {
-            // رجعنا للشاشة الرئيسية من نافذة -> أغلق النوافذ
-            document.querySelectorAll('.open').forEach(el => el.classList.remove('open'));
-        } else {
-            // المستخدم ضغط تراجع وهو في الشاشة الرئيسية أصلاً!
-            if (confirm('هل أنت متأكد أنك تريد الخروج من التطبيق؟')) {
-                history.back(); // السماح بالخروج
-            } else {
-                // إلغاء الخروج وإعادة بناء الجدار
-                history.pushState({ root: true }, '');
-            }
-        }
-    } else if (location.hash.startsWith('#view-')) {
-        // إغلاق النافذة السفلية فقط
-        document.getElementById('overlay').classList.remove('open');
-    }
-    
-    setTimeout(() => skipHash = false, 50);
-});
 
 // تسجيل Service Worker للـ PWA
 if ('serviceWorker' in navigator) {
@@ -1111,7 +1143,6 @@ if ('serviceWorker' in navigator) {
 // INITIALIZE APP
 window.onload = function() {
     initApp();
-    // إنشاء جدار حماية الخروج عند فتح التطبيق
     if (!location.hash) {
         history.pushState({ root: true }, '');
     }
