@@ -599,7 +599,7 @@ function openMatDetail(id) {
       </div>
       <div class="card" style="margin:0 0 12px">
         <div class="card-body">
-          ${[['العائلة العطرية', m.family],['الموقع في الهرم', m.note + ' Note'],['السعر / غرام', '$' + m.price],['الوصف العام', m.gdesc],['وصف الرائحة', m.odesc],['نوتات مشهورة', m.notes],['يمتزج مع', m.blend],['رقم CAS', m.cas],['الحالة', m.phys]].map(([k,v]) => `<div class="drow"><div class="drow-k">${k}</div><div class="drow-v">${v||'—'}</div></div>`).join('')}
+  ${[['العائلة العطرية', m.family],['الموقع في الهرم', m.note + ' Note'],['السعر / غرام', '$' + m.price],['وصف الرائحة', m.odesc],['يمتزج مع', m.blend],['رقم CAS', m.cas],['الحالة', m.phys]].map(([k,v]) => `<div class="drow"><div class="drow-k">${k}</div><div class="drow-v">${v||'—'}</div></div>`).join('')}
         </div>
       </div>
     </div>`;
