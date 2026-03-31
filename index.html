@@ -399,7 +399,7 @@ async function initApp() {
           note: m.Pyramid || 'Base', price: parseFloat(m.Price) || 0, sub: parseFloat(m.Duration) || 0,
           impact: parseFloat(m.Impact) || 0, min: parseFloat(m.Min_use) || 0, avg: parseFloat(m.Ave_use) || 0,
           max: parseFloat(m.Max_use) || 0, ifra: parseFloat(m.Ifra) || 100, cas: m.CAS,
-          phys: m.Physical, gdesc: m.Description, odesc: m.Odor, notes: m.Uses, blend: m.Blend_with, link: m.Source, e: '💧'
+          phys: m.Physical, gdesc: m.Description, odesc: m.Odor, notes: m.Uses, blend: m.Blend_with, link: m.Source, e: m.Icon || '💧'
         }));
       }
 
@@ -418,7 +418,8 @@ async function initApp() {
             const frms = (d.Formulas || []).filter(f => f.Project_Id === p.Project_Id).map(f => ({
                id: f.Formula_Id, num: parseInt(f.Version_Number)||1, ingredients: JSON.parse(f.Formula_JSON || "[]")
             }));
-            return { id: p.Project_Id, name: p.Fragrance_Name, story: p.Fragrance_Story, versions: frms };
+            return { id: p.Project_Id, name: p.Fragrance_Name, story: p.Fragrance_Story, icon: p.Icon || '🫙', versions: frms };
+
          });
       }
 
@@ -675,7 +676,8 @@ function deleteAccord(id) {
 /* FORMULAS */
 function renderFrags() {
   if (!ST.fragrances.length) return `<div class="empty-state"><div class="empty-icon">🫙</div><div class="empty-text">لا توجد مشاريع بعد</div></div>`;
-  return ST.fragrances.map(f => `<div class="card card-tap" onclick="openFragView('${f.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:var(--acc)">🫙</div><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;color:var(--pri)">${f.name}</div></div></div></div></div>`).join('');
+  return ST.fragrances.map(f => `<div class="card card-tap" onclick="openFragView('${f.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:var(--acc)">${f.icon || '🫙'}</div><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;color:var(--pri)">${f.name}</div></div></div></div></div>`).join('');
+
 }
 function openCreateFragSheet() {
   openSheet(`<div class="bs-head"><span class="bs-title">عطر جديد</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body"><div class="fg"><label class="fl">الاسم</label><input class="fi" id="fnName"></div><div class="fg"><label class="fl">قصة العطر (اختياري)</label><textarea class="fi" id="fnStory" rows="3" placeholder="اكتب قصة أو إلهام العطر هنا..."></textarea></div><button class="btn btn-acc btn-block" onclick="createFrag()">إنشاء</button></div>`);
@@ -842,8 +844,13 @@ function applyIngPct(iid, vid) { getVer(ST.curFragId, vid).ingredients.find(i=>i
 /* PRODUCTIONS & ALCOHOL MATH */
 function renderProds() {
   if (!ST.productions.length) return `<div class="empty-state"><div class="empty-icon">⚗️</div><div class="empty-text">لا توجد تجارب بعد</div></div>`;
-  return ST.productions.map(p=>`<div class="card card-tap" onclick="openProdView('${p.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:#2D6A4F">⚗️</div><div style="flex:1"><div style="font-size:15px;font-weight:700">${p.fragName}</div><div style="font-size:12px;color:var(--t2)">صيغة #${p.verNum} · ${p.vol}مل</div></div></div></div></div>`).join('');
+  return ST.productions.map(p => {
+      const f = getFrag(p.fragId);
+      const icon = (f && f.icon) ? f.icon : '⚗️';
+      return `<div class="card card-tap" onclick="openProdView('${p.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:#2D6A4F">${icon}</div><div style="flex:1"><div style="font-size:15px;font-weight:700">${p.fragName}</div><div style="font-size:12px;color:var(--t2)">صيغة #${p.verNum} · ${p.vol}مل</div></div></div></div></div>`;
+  }).join('');
 }
+
 function openCreateProdSheet() {
   const frags = ST.fragrances.filter(f=>f.versions.length);
   if (!frags.length) return;
