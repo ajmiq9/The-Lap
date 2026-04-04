@@ -1332,44 +1332,967 @@ function openView(id) {
 function closeView(id) { 
     document.getElementById(id).classList.remove('open'); 
     if (!skipHash) {
-        skipHash = true;
-        history.back();
-        setTimeout(() => skipHash = false, 50);
-    }
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1A365D">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>The Lap</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F8F9FA;--card:#fff;--pri:#1A365D;--pri-l:rgba(26,54,93,.08);
+  --acc:#B7791F;--acc-l:#FFFBEB;
+  --red:#E53E3E;--red-l:#FFF5F5;
+  --yel:#D69E2E;--yel-l:#FFFFF0;
+  --grn:#38A169;--grn-l:#F0FFF4;
+  --t1:#1A202C;--t2:#4A5568;--t3:#A0AEC0;
+  --bdr:#E2E8F0;--bdr2:#EDF2F7;
+  --sh:0 1px 8px rgba(0,0,0,.08);
+  --r:14px;--rs:9px;--nav:64px;--hd:58px;
 }
-
-function openSheet(html) { 
-    document.getElementById('bsContent').innerHTML = html; 
-    document.getElementById('overlay').classList.add('open'); 
-    if(!skipHash) history.pushState({sheet: true}, '', '#sheet');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body { overscroll-behavior-y:none; }
+html { background-color: var(--bg); height: 100%; }
+body { 
+    font-family: 'Tajawal', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--t1);
+    max-width: 430px;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    position: relative !important;
+    height: calc(100vh - 34px) !important;
+    max-height: calc(100vh - 34px) !important;
+    overflow: hidden !important;
 }
+#app{display:flex;flex-direction:column;height:100dvh}
 
-function closeSheet() { 
-    document.getElementById('overlay').classList.remove('open'); 
-    if (!skipHash) {
-        skipHash = true;
-        history.back();
-        setTimeout(() => skipHash = false, 50);
-    }
+/* CLOUD SYNC BUTTON */
+.sync-btn {
+  position: fixed; top: 12px; left: 5px;
+  background: var(--acc); color: #fff; padding: 5px 10px;
+  border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer; z-index: 99; display: flex; flex-direction: column;
+  align-items: center; transition: transform 0.2s;
 }
+.sync-btn:active { transform: scale(0.95); }
+.sync-icon { font-size: 11px; font-weight: 800; }
+.sync-status { font-size: 8px; opacity: 0.9; margin-top: 2px; }
 
-function handleOvClick(e) { 
-    if (e.target === document.getElementById('overlay')) closeSheet(); 
+/* LOADER */
+#loader {
+  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
+.spinner { font-size: 40px; margin-bottom: 16px; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% {transform: scale(0.95); opacity: 0.5;} 50% {transform: scale(1.05); opacity: 1;} 100% {transform: scale(0.95); opacity: 0.5;} }
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(()=>console.log('SW failed'));
-  });
-}
+/* TOP HEADER */
+.hdr{background:var(--pri);color:#fff;height:var(--hd);padding:0 16px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;z-index:10}
+.hdr-brand{display:flex;flex-direction:column;align-items:center;position:absolute;left:50%;transform:translateX(-50%);text-align:center;}
+.hdr-logo{font-size:20px;font-weight:800;letter-spacing:4px;line-height:1}
+.hdr-sub{font-size:8px;opacity:.4;letter-spacing:5px;font-weight:300;margin-top:1px}
+.hdr-act{display:flex;gap:8px}
 
-window.onload = function() {
-    initApp();
-    if (!location.hash) {
-        history.pushState({ root: true }, '');
-    }
+/* CONTENT & NAV */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+.bnav{height:calc(var(--nav) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--pri);display:flex;flex-shrink:0;position:relative;border-top:1px solid rgba(255,255,255,.06)}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;border:none;background:none;color:rgba(255,255,255,.38);cursor:pointer;
+  transition:color .2s;position:relative;padding:0}
+.bn-item.active{color:#fff}
+.bn-item.active::after{content:'';position:absolute;top:0;left:28%;right:28%;
+  height:2px;background:var(--acc);border-radius:0 0 3px 3px}
+.bn-item svg{width:22px;height:22px;stroke-width:1.7}
+.bn-lbl{font-size:10px;font-weight:700}
+
+/* STICKY SECTION HEADER */
+.sec-hdr{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--bdr)}
+.sec-title{font-size:11px;font-weight:800;color:var(--t2);text-transform:uppercase;letter-spacing:1.5px}
+.sec-meta{font-size:11px;color:var(--t3)}
+
+/* CARDS */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin:8px 14px;overflow:hidden}
+.card-body{padding:14px 16px}
+.card-tap{cursor:pointer;transition:transform .12s,box-shadow .12s}
+.card-tap:active{transform:scale(.985);box-shadow:none}
+
+/* BUTTONS */
+.btn{border:none;border-radius:var(--rs);font-family:'Tajawal',sans-serif;
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  gap:6px;font-weight:700;transition:filter .15s;white-space:nowrap}
+.btn:active{filter:brightness(.87)}
+.btn-acc{background:var(--acc);color:#fff;padding:11px 20px;font-size:14px}
+.btn-pri{background:var(--pri);color:#fff;padding:11px 20px;font-size:14px}
+.btn-ghost{background:var(--pri-l);color:var(--pri);padding:8px 14px;font-size:13px}
+.btn-danger{background:var(--red-l);color:var(--red);padding:8px 14px;font-size:13px}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-xs{padding:4px 9px;font-size:11px;border-radius:6px}
+.btn-block{width:100%}
+.btn-hdr{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18);
+  color:#fff;padding:7px 13px;font-size:12px;border-radius:var(--rs)}
+
+/* FORM */
+.fg{margin-bottom:14px}
+.fg:last-child{margin-bottom:0}
+.fl{display:block;font-size:11px;font-weight:800;color:var(--t2);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.fi,.fsel,.ftxt{width:100%;border:1.5px solid var(--bdr);border-radius:var(--rs);
+  padding:10px 13px;font-family:'Tajawal',sans-serif;font-size:15px;
+  color:var(--t1);background:var(--card);outline:none;
+  -webkit-appearance:none;appearance:none;transition:border-color .2s}
+.fi:focus,.fsel:focus,.ftxt:focus{border-color:var(--pri)}
+.ftxt{resize:vertical;min-height:72px}
+.fi-sm{border:1.5px solid var(--bdr);border-radius:6px;padding:7px 8px;
+  font-family:'Tajawal',sans-serif;font-size:13px;color:var(--t1);
+  background:var(--card);outline:none;text-align:center;direction:ltr;
+  width:100%;transition:border-color .2s,background .2s}
+.fi-sm:focus{border-color:var(--pri)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-base{background:#EBF4FF;color:#2B6CB0}
+.badge-heart{background:#FFF0F3;color:#C53030}
+.badge-top{background:#F0FFF4;color:#276749}
+.badge-acc{background:var(--acc-l);color:var(--acc)}
+
+/* BOTTOM SHEET */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:all}
+.bsheet{position:absolute;bottom:0;left:0;right:0;background:var(--card);
+  border-radius:22px 22px 0 0;max-height:92dvh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);
+  padding-bottom:max(env(safe-area-inset-bottom),20px)}
+
+.overlay.open .bsheet{transform:translateY(0)}
+.bs-handle{width:38px;height:4px;background:var(--bdr);border-radius:4px;margin:12px auto 0}
+.bs-head{padding:14px 16px 12px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid var(--bdr)}
+.bs-title{font-size:16px;font-weight:700;color:var(--pri);display:flex;align-items:center;}
+.bs-body{padding:16px}
+.close-btn{background:var(--bdr2);border:none;border-radius:50%;width:30px;height:30px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--t2);font-weight:700}
+
+/* FULL SCREEN VIEWS */
+.fsv{position:fixed;inset:0;max-width:430px;margin:0 auto;background:var(--bg);
+  display:flex;flex-direction:column;transform:translateX(-100%);
+  transition:transform .28s ease;z-index:100}
+.fsv.open{transform:translateX(0)}
+.fsv-head{background:var(--pri);color:#fff;padding:13px 16px;
+  display:flex;align-items:center;gap:11px;flex-shrink:0;min-height:56px}
+.fsv-head h2{font-size:16px;font-weight:700;line-height:1.3;}
+.fsv-sub{font-size:11px;opacity:.55;margin-top:1px}
+.fsv-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.back-btn{background:rgba(255,255,255,.15);border:none;border-radius:9px;
+  width:38px;height:38px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;color:#fff;flex-shrink:0}
+
+/* DETAIL ROW & PYRAMIDS */
+.drow{display:flex;justify-content:space-between;align-items:flex-start;
+  padding:10px 0;border-bottom:1px solid var(--bdr2)}
+.drow:last-child{border-bottom:none}
+.drow-k{font-size:12px;color:var(--t2);font-weight:500;max-width:45%}
+.drow-v{font-size:13px;color:var(--t1);font-weight:700;text-align:end;max-width:55%;word-break:break-word}
+.pyr-sec{margin-bottom:10px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--bdr)}
+.pyr-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px}
+.pyr-head.base{background:#EBF4FF;color:#2B6CB0}
+.pyr-head.heart{background:#FFF0F3;color:#C53030}
+.pyr-head.top{background:#F0FFF4;color:#276749}
+.pyr-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.ing-row{display:grid;align-items:center;padding:9px 12px;
+  border-bottom:1px solid var(--bdr2);background:var(--card);gap:6px}
+.ing-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ing-pct{font-size:14px;font-weight:800;color:var(--pri);direction:ltr;text-align:center}
+
+/* TOTAL BAR & ALCOHOL BOX */
+.total-bar{background:var(--pri);color:#fff;border-radius:var(--r);padding:14px 18px;
+  margin:8px 14px;display:flex;align-items:center;justify-content:space-between}
+.total-num{font-size:32px;font-weight:800;direction:ltr}
+.total-lbl{font-size:12px;opacity:.6;margin-top:1px}
+.alc-box{background:linear-gradient(135deg,#1A365D 0%,#2A4A8A 100%);
+  color:#fff;border-radius:var(--r);padding:16px;margin:8px 14px}
+.alc-row{display:flex;align-items:flex-end;justify-content:space-between}
+.alc-lbl{font-size:11px;opacity:.6;margin-bottom:2px}
+.alc-val{font-size:32px;font-weight:800;line-height:1;direction:ltr}
+.alc-unit{font-size:13px;opacity:.65}
+
+/* SORT OPTION & CHIPS */
+.sort-row{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .15s}
+.sort-row.active{background:var(--acc-l)}
+.sort-label{font-size:14px;font-weight:500}
+.sort-row.active .sort-label{color:var(--acc);font-weight:700}
+.v-scroll{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;scrollbar-width:none}
+.v-chip{flex-shrink:0;padding:7px 18px;border-radius:20px;font-size:13px;font-weight:700;
+  cursor:pointer;background:var(--bdr2);color:var(--t2);transition:all .18s;border:none}
+.v-chip.active{background:var(--pri);color:#fff}
+
+/* MISC */
+.pick-item{padding:13px 16px;border-bottom:1px solid var(--bdr2);cursor:pointer;
+  display:flex;align-items:center;gap:12px;transition:background .12s}
+.prod-mat{background:var(--card);padding:10px;border-bottom:1px solid var(--bdr2)}
+.mat-icon{width:44px;height:44px;border-radius:12px;background:var(--pri);
+  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.row-flex{display:flex;align-items:center;gap:8px}
+.empty-state{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:60px 32px;text-align:center;gap:12px}
+.empty-icon{font-size:44px;opacity:.2}
+.empty-text{font-size:14px;color:var(--t2);line-height:1.8}
+.snack{position:fixed;bottom:calc(var(--nav) + 14px);left:50%;
+transform:translateX(-50%) translateY(16px);background:#1A202C;color:#fff;
+padding:10px 20px;border-radius:24px;font-size:13px;font-weight:600;z-index:999;
+opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:92%}
+.snack.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.sep{height:8px;background:var(--bg)}
+
+/* AI ANALYSIS STYLES */
+.anlys-sec{margin-bottom:16px}
+.anlys-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;
+  color:var(--pri);border-bottom:2px solid var(--acc);padding-bottom:6px;margin-bottom:10px}
+.anlys-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr2)}
+.anlys-lbl{font-size:13px;color:var(--t2)}
+.anlys-val{font-size:14px;font-weight:700;color:var(--pri);direction:ltr;text-align:left}
+.pie-chart { width: 150px; height: 150px; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 4px solid var(--card); }
+.fam-legend { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 14px; }
+.fam-badge { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; background: var(--bg); padding: 5px 10px; border-radius: 8px; color: var(--t2); border: 1px solid var(--bdr); }
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="spinner">🧪</div>
+  <div style="font-size:18px; font-weight:700; color:var(--pri); animation: pulse 1.5s infinite;">جاري استدعاء البيانات...</div>
+</div>
+
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-brand">
+      <div class="hdr-logo">THE LAP</div>
+      <div class="hdr-sub">PERFUME LABORATORY</div>
+    </div>
+    <div class="hdr-act" id="hdrAct"></div>
+  </div>
+  
+  <div id="syncBtn" class="sync-btn" onclick="syncData()">
+    <div class="sync-icon">☁️ حفظ سحابي</div>
+    <div id="syncStatus" class="sync-status">آخر حفظ: لم يتم</div>
+  </div>
+
+  <div class="content" id="mainContent"></div>
+  
+  <nav class="bnav">
+    <button class="bn-item active" id="tab0" onclick="switchTab(0)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg><span class="bn-lbl">المواد</span></button>
+    <button class="bn-item" id="tab1" onclick="switchTab(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span class="bn-lbl">النوتة</span></button>
+    <button class="bn-item" id="tab2" onclick="switchTab(2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 2 22 22 22"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="16" x2="16" y2="16"/></svg><span class="bn-lbl">الصيغة</span></button>
+    <button class="bn-item" id="tab3" onclick="switchTab(3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v17M8 8H4v13h16V8h-4M8 3h8v5H8z"/></svg><span class="bn-lbl">التنفيذ</span></button>
+  </nav>
+</div>
+
+<div class="fsv" id="dvMat" style="z-index: 130;">
+  <div class="fsv-head">
+    <button class="back-btn" onclick="closeView('dvMat')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div><h2 id="dvMatTitle">—</h2><div class="fsv-sub" id="dvMatSub">—</div></div>
+  </div>
+  <div class="fsv-body" id="dvMatBody"></div>
+</div>
+
+<div class="fsv" id="dvFrag" style="z-index: 100;">
+  <div class="fsv-head">
+    <button class="back-btn" onclick="closeView('dvFrag')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div style="flex:1;min-width:0;overflow:hidden;display:flex;align-items:center;gap:8px;" id="dvFragTitleWrap"></div>
+    <button class="btn btn-hdr" onclick="triggerAnalyze()" style="flex-shrink:0; margin-left:8px; border-color:var(--acc); color:var(--acc);">🧠 تحليل</button>
+    <button class="btn btn-hdr" style="flex-shrink:0;margin-right:0" onclick="newVersion()">+ صيغة</button>
+  </div>
+  <div class="fsv-body" id="dvFragBody"></div>
+</div>
+
+<div class="fsv" id="dvAcc" style="z-index: 105;">
+  <div class="fsv-head">
+    <button class="back-btn" onclick="closeView('dvAcc')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div style="flex:1"><h2 id="dvAccTitle" style="display:flex;align-items:center;gap:8px;">—</h2><div class="fsv-sub" id="dvAccSub">—</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="saveAccord()">💾 حفظ</button>
+  </div>
+  <div class="fsv-body" id="dvAccBody"></div>
+</div>
+
+<div class="fsv" id="dvProd" style="z-index: 115;">
+  <div class="fsv-head">
+    <button class="back-btn" onclick="closeView('dvProd')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div style="flex:1"><h2 id="dvProdTitle">—</h2><div class="fsv-sub" id="dvProdSub">—</div></div>
+    <button class="btn btn-hdr btn-sm" id="dvProdRcBtn" onclick="toggleRecalcMode()">⚖️ معايرة</button>
+  </div>
+  <div class="fsv-body" id="dvProdBody"></div>
+</div>
+
+<div class="overlay" id="overlay" onclick="handleOvClick(event)">
+  <div class="bsheet" onclick="event.stopPropagation()">
+    <div class="bs-handle"></div>
+    <div id="bsContent"></div>
+  </div>
+</div>
+
+<div class="snack" id="snack"></div>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxl1LziIkwsEKtWocY0sHlDMb6G5gm04kJYlkvSM-cRQKxGEs3bHTShACjk-MC6kPCU/exec"; 
+
+let MATS = []; 
+let ST = {
+  tab: 0, sortField: 'name', sortAsc: true,
+  accords: [], curAccId: null,
+  fragrances: [], curFragId: null, curVerId: null,
+  productions: [], curProdId: null,
+  recalcMode: false, recalcMid: null
 };
 
+/* Data Dictionaries for AI Analysis */
+const MAIN_FAM = {
+  'A':'ألدهيدي/نظيف', 'B':'بارد/منعش', 'C':'حمضي', 'D':'حليبي', 'E':'جورماند',
+  'F':'فاكهي', 'G':'عشبي', 'H':'أروماتيك', 'I':'بودري', 'J':'ياسمين/زهور',
+  'K':'صنوبري', 'L':'زهور ناعمة', 'M':'مائي/زنبق', 'N':'زهور غنية', 'O':'أوركيد',
+  'P':'دوائي', 'Q':'عنبر شرقي', 'R':'ورد', 'S':'توابل', 'T':'مدخن', 'U':'مسك/جلود',
+  'V':'فانيليا/حلاوة', 'W':'خشبي', 'X':'مسك نظيف', 'Y':'طحلبي', 'Z':'مذيبات'
+};
+
+const SUB_FAM = {
+  'Aa':'نوتات صابونية', 'Ac':'ألدهيدات', 'Ar':'ألدهيدات معدنية', 'Ca':'برتقال', 'Cc':'ليمون',
+  'Ck':'لايم', 'Cl':'برغموت', 'Cn':'يوسفي', 'Cj':'نيرولي', 'Cw':'بيتيتغرين',
+  'Fa':'تفاح', 'Fb':'كشمش', 'Fd':'خوخ/مشمش', 'Fg':'شمام', 'Fi':'توت', 'Fp':'أناناس',
+  'Fv':'فراولة', 'Gh':'جلبانوم', 'Hl':'خزامى', 'Hb':'ميرمية', 'If':'زهور بنفسجية',
+  'Iw':'أخشاب زهرية', 'Ia':'جذور السوسن', 'Ig':'بنفسج بودري', 'Jf':'ياسمين فاكهي',
+  'Jn':'ياسمين', 'Kl':'صنوبر', 'Kh':'إبر الصنوبر', 'Lw':'زهور بيضاء', 'Mg':'زنابق خضراء',
+  'Nj':'يلانغ', 'Nn':'نرجس', 'No':'مسك الروم', 'Oo':'أوركيد', 'On':'نوتات شمسية',
+  'Pp':'أخشاب دوائية', 'Pv':'عسل', 'Qv':'بلسم', 'Qn':'راتنجيات', 'Rl':'ورد ناعم',
+  'Rr':'خلاصة الورد', 'Sb':'يانسون', 'Sp':'قرنفل', 'So':'قرفة', 'Sh':'زعتر/توابل',
+  'Tt':'أخشاب مدخنة', 'Uu':'زباد', 'Uw':'عنبر الحوت', 'Up':'جلود', 'Vv':'فانيليا',
+  'Vt':'كراميل', 'Vh':'تونكا', 'Wb':'باتشولي', 'Wq':'خشب الصندل', 'Ww':'خشب الأرز',
+  'Wy':'فيتيفير', 'Xx':'مسك نظيف', 'Xo':'مسك كلاسيكي', 'Yh':'طحلب البلوط', 'Yp':'أعشاب بحرية',
+  'Yg':'نوتات مائية', 'Yy':'نوتات ترابية'
+};
+
+function getFamMainName(k) { return MAIN_FAM[k] || 'عطري'; }
+function getFamSubName(k) { return SUB_FAM[k] || 'نوتة عطرية'; }
+
+const uid = () => '_' + Math.random().toString(36).substr(2,9);
+const getMat = id => MATS.find(m => m.id === id);
+const getFrag = id => ST.fragrances.find(f => f.id === id);
+const getVer = (fid, vid) => { const f = getFrag(fid); return f ? f.versions.find(v => v.id === vid) : null; };
+const getAcc = id => ST.accords.find(a => a.id === id);
+const getProd = id => ST.productions.find(p => p.id === id);
+const fmtN = (n, d=2) => isNaN(n) || n === null || n === undefined ? '—' : parseFloat(n.toFixed(d));
+const todayStr = () => new Date().toLocaleDateString('ar-SA');
+
+function getAccordIcon(acc) {
+  if (acc.customIcon) return acc.customIcon;
+  if (acc.ingredients && acc.ingredients.length === 1) {
+      const m = getMat(acc.ingredients[0].matId);
+      if (m) return m.e;
+  }
+  return '🧬';
+}
+
+async function initApp() {
+  if(!GAS_URL) {
+     document.getElementById('loader').style.display = 'none';
+     snack('⚠ الرابط السحابي غير متوفر.');
+     return;
+  }
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if(json.status === 'success') {
+      const d = json.data;
+      if(d.Raw_Materials) {
+        MATS = d.Raw_Materials.map(m => ({
+          id: m.Raw_Materials_Id, name: m.Aroma_Name, 
+          family: (m.Family_main||'') + ' ' + (m.Family_sub||''),
+          fMain: m.Family_main || '', fSub: m.Family_sub || '',
+          note: m.Pyramid || 'Base', price: parseFloat(m.Price) || 0, sub: parseFloat(m.Duration) || 0,
+          impact: parseFloat(m.Impact) || 0, min: parseFloat(m.Min_use) || 0, avg: parseFloat(m.Ave_use) || 0,
+          max: parseFloat(m.Max_use) || 0, ifra: parseFloat(m.Ifra) || 100, cas: m.CAS,
+          phys: m.Physical, gdesc: m.Description, odesc: m.Odor, notes: m.Uses, blend: m.Blend_with, link: m.Source, e: m.Icon || '💧'
+        }));
+      }
+
+      if(d.Accords) {
+         ST.accords = d.Accords.map(a => ({
+            id: a.Accord_Id, name: a.Accord_Name, note: a.Pyramid, volume: parseFloat(a.Total_Volume_ml)||0,
+            conc: parseFloat(a.Concentration_pct)||0, saved: true,
+            ingredients: JSON.parse(a.Ingredients_JSON || "[]"),
+            customIcon: a.Icon || null
+         }));
+      }
+
+      if(d.Projects) {
+         ST.fragrances = d.Projects.map(p => {
+            const frms = (d.Formulas || []).filter(f => f.Project_Id === p.Project_Id).map(f => ({
+               id: f.Formula_Id, num: parseInt(f.Version_Number)||1, ingredients: JSON.parse(f.Formula_JSON || "[]")
+            }));
+            return { id: p.Project_Id, name: p.Fragrance_Name, story: p.Fragrance_Story, icon: p.Icon || '🫙', versions: frms, lastVerId: null };
+         });
+      }
+
+      if(d.Productions) {
+         ST.productions = d.Productions.map(p => {
+            let fId = null, fName = "غير معروف", vNum = 1;
+            if (d.Formulas) {
+               const frm = d.Formulas.find(f => f.Formula_Id === p.Formula_Id);
+               if (frm) {
+                  vNum = parseInt(frm.Version_Number) || 1;
+                  fId = frm.Project_Id;
+                  if (d.Projects) {
+                     const proj = d.Projects.find(pr => pr.Project_Id === fId);
+                     if (proj) fName = proj.Fragrance_Name;
+                  }
+               }
+            }
+            const actualsParsed = JSON.parse(p.Actual_Weights_JSON || "{}");
+            const parsedAlc = p.Actual_Alcohol !== undefined && p.Actual_Alcohol !== "" ? parseFloat(p.Actual_Alcohol) : parseFloat(actualsParsed.actualAlc);
+            return {
+               id: p.Production_Id, fragId: fId, fragName: fName, verId: p.Formula_Id, verNum: vNum,
+               vol: parseFloat(p.Target_Volume_ml)||0, conc: parseFloat(p.Target_Concentration_pct)||0,
+               status: p.Status, date: p.Date, actuals: actualsParsed, actualAlc: isNaN(parsedAlc) ? '' : parsedAlc
+            };
+         });
+      }
+
+      document.getElementById('loader').style.display = 'none';
+      renderMain();
+    }
+  } catch (e) {
+    document.getElementById('loader').style.display = 'none';
+    snack('❌ فشل الاتصال بقاعدة البيانات');
+  }
+}
+
+async function syncData() {
+  if(!GAS_URL) { snack('⚠ ضع رابط GAS_URL أولاً'); return; }
+  const statusEl = document.getElementById('syncStatus');
+  statusEl.textContent = 'جاري الحفظ...';
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ accords: ST.accords, fragrances: ST.fragrances, productions: ST.productions }) });
+    const now = new Date();
+    statusEl.textContent = `آخر حفظ: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    snack('✅ تم الحفظ السحابي بنجاح');
+  } catch (e) {
+    statusEl.textContent = '❌ فشل الحفظ';
+    snack('حدث خطأ أثناء الاتصال بالخادم');
+  }
+}
+
+function getIngData(ing) {
+  if (ing.isAcc) {
+    const acc = getAcc(ing.accId);
+    return acc ? {name:acc.name, note:acc.note||'Heart', e:getAccordIcon(acc), isAcc:true, acc, ifra:100, max:100, avg:100, price:0, sub:0, impact:0} : null;
+  }
+  const m = getMat(ing.mid);
+  return m ? {...m} : null;
+}
+
+function noteBadge(note) {
+  const map = {Base:['badge-base','قاعدة'],Heart:['badge-heart','قلب'],Top:['badge-top','إفتتاحية']};
+  const [cls,lbl] = map[note] || ['badge-base', note];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function snack(msg) {
+  const el = document.getElementById('snack');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function switchTab(t) {
+  ST.tab = t;
+  [0,1,2,3].forEach(i => document.getElementById('tab'+i).classList.toggle('active', i===t));
+  renderMain();
+}
+
+function renderMain() {
+  const ha = document.getElementById('hdrAct');
+  const mc = document.getElementById('mainContent');
+  if (ST.tab === 0) {
+    ha.innerHTML = `<button class="btn btn-hdr" onclick="openSortSheet()">↕ ترتيب</button>`;
+    mc.innerHTML = renderMats();
+  } else if (ST.tab === 1) {
+    ha.innerHTML = `<button class="btn btn-hdr" onclick="openCreateAccordSheet()">+ نوتة جديدة</button>`;
+    mc.innerHTML = renderAccords();
+  } else if (ST.tab === 2) {
+    ha.innerHTML = `<button class="btn btn-hdr" onclick="openCreateFragSheet()">+ عطر جديد</button>`;
+    mc.innerHTML = renderFrags();
+  } else {
+    ha.innerHTML = `<button class="btn btn-hdr" onclick="openCreateProdSheet()">+ تجربة جديدة</button>`;
+    mc.innerHTML = renderProds();
+  }
+}
+
+/* ---------------- MATERIALS ---------------- */
+function renderMats() {
+  let mats = [...MATS];
+  const f = ST.sortField, asc = ST.sortAsc;
+  const noteOrd = {Top:0, Heart:1, Base:2};
+  mats.sort((a,b) => {
+    let va, vb;
+    if (f==='name') { va=a.name; vb=b.name; return asc ? va.localeCompare(vb) : vb.localeCompare(va); }
+    if (f==='note') { va=noteOrd[a.note]; vb=noteOrd[b.note]; }
+    else if (f==='price') { va=a.price; vb=b.price; }
+    else if (f==='sub') { va=a.sub; vb=b.sub; }
+    else if (f==='impact') { va=a.impact; vb=b.impact; }
+    else if (f==='avg') { va=a.avg; vb=b.avg; }
+    else if (f==='max') { va=a.max; vb=b.max; }
+    else { va=a.price; vb=b.price; }
+    return asc ? (va>vb?1:-1) : (va<vb?1:-1);
+  });
+  const labels = {name:'أبجدياً',price:'التكلفة',sub:'الثبات',impact:'التأثير',avg:'متوسط الاستخدام',max:'أقصى استخدام',note:'الهرم'};
+  return `
+    <div class="sec-hdr"><span class="sec-title">المواد الخام</span><span class="sec-meta">${labels[f]||''} ${asc?'↑':'↓'} · ${mats.length} مادة</span></div>
+    ${mats.map(m=>`
+      <div class="card card-tap" onclick="openMatDetail('${m.id}')">
+        <div class="card-body" style="display:flex;align-items:center;gap:12px">
+          <div class="mat-icon">${m.e}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;margin-bottom:3px">${m.name}</div>
+            <div style="font-size:12px;color:var(--t2)">${getFamMainName(m.fMain)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            ${noteBadge(m.note)}
+            <span style="font-size:11px;color:var(--t3)">$${m.price}/g</span>
+          </div>
+        </div>
+      </div>`).join('')}
+    <div style="height:12px"></div>`;
+}
+
+function openMatDetail(id) {
+  const m = getMat(id); if (!m) return;
+  document.getElementById('dvMatTitle').textContent = m.name;
+  document.getElementById('dvMatSub').textContent = getFamMainName(m.fMain) + ' · ' + m.note + ' Note';
+  document.getElementById('dvMatBody').innerHTML = `
+    <div style="padding:14px">
+      <div class="card" style="margin:0 0 12px">
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div class="mat-icon" style="width:60px;height:60px;font-size:30px;border-radius:16px">${m.e}</div>
+            <div><div style="font-size:22px;font-weight:800;color:var(--pri)">${m.name}</div><div style="margin-top:5px">${noteBadge(m.note)}</div></div>
+          </div>
+          <div class="g3" style="margin-bottom:14px">
+            ${[['الثبات',m.sub+'h'],['التأثير',m.impact+'/10'],['IFRA',m.ifra+'%']].map(([l,v])=>`<div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3);margin-bottom:3px">${l}</div><div style="font-size:19px;font-weight:800;color:var(--pri)">${v}</div></div>`).join('')}
+          </div>
+          <div class="g3">
+            ${[['أدنى %',m.min+'%'],['متوسط %',m.avg+'%'],['أقصى %',m.max+'%']].map(([l,v])=>`<div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3);margin-bottom:3px">${l}</div><div style="font-size:16px;font-weight:800;color:var(--t1)">${v}</div></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin:0 0 12px"><div class="card-body">
+  ${[['العائلة العطرية', getFamMainName(m.fMain)],['الموقع في الهرم', m.note + ' Note'],['السعر / غرام', '$' + m.price],['وصف الرائحة', m.odesc],['يمتزج مع', m.blend],['رقم CAS', m.cas],['الحالة', m.phys]].map(([k,v]) => `<div class="drow"><div class="drow-k">${k}</div><div class="drow-v">${v||'—'}</div></div>`).join('')}
+      </div></div>
+    </div>`;
+  openView('dvMat');
+}
+
+function openSortSheet() {
+  const fields = [{id:'name',lbl:'أبجدياً'},{id:'price',lbl:'التكلفة'},{id:'sub',lbl:'قوة الثبات'},{id:'impact',lbl:'قوة التأثير'},{id:'avg',lbl:'متوسط الاستخدام'},{id:'max',lbl:'أقصى الاستخدام'},{id:'note',lbl:'الموقع في الهرم'}];
+  openSheet(`<div class="bs-head"><span class="bs-title">ترتيب حسب</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div style="padding:0 0 8px">${fields.map(f => `<div class="sort-row ${ST.sortField===f.id?'active':''}" onclick="setSortField('${f.id}')"><span class="sort-label">${f.lbl}</span>${ST.sortField===f.id ? `<span style="color:var(--acc);font-weight:800">${ST.sortAsc?'↑':'↓'}</span>` : ''}</div>`).join('')}<div style="padding:12px 16px;border-top:1px solid var(--bdr);margin-top:4px"><div style="display:flex;gap:8px"><button class="btn btn-ghost" style="flex:1;${ST.sortAsc?'background:var(--pri);color:#fff':''}" onclick="setSortDir(true)">↑ تصاعدي</button><button class="btn btn-ghost" style="flex:1;${!ST.sortAsc?'background:var(--pri);color:#fff':''}" onclick="setSortDir(false)">↓ تنازلي</button></div></div></div>`);
+}
+function setSortField(f) { if (ST.sortField === f) ST.sortAsc = !ST.sortAsc; else { ST.sortField = f; ST.sortAsc = true; } closeSheet(); renderMain(); }
+function setSortDir(asc) { ST.sortAsc = asc; closeSheet(); renderMain(); }
+
+/* ---------------- ACCORDS ---------------- */
+function renderAccords() {
+  if (!ST.accords.length) return `<div class="empty-state"><div class="empty-icon">🧪</div><div class="empty-text">لا توجد نوتات بعد</div></div>`;
+  return ST.accords.map(a => {
+      const total = a.ingredients.reduce((s,i)=>s+i.pct,0);
+      return `<div class="card card-tap" onclick="openAccordDetail('${a.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:#5A3E8C">${getAccordIcon(a)}</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">${a.name}</div><div style="font-size:12px;color:var(--t2);margin-top:2px">${a.volume} مل · تركيز ${a.conc}%</div></div><div style="text-align:end"><span class="badge badge-acc">أكورد</span><div style="font-size:11px;color:${total===100?'var(--grn)':'var(--red)'};margin-top:4px;font-weight:700">${total}%</div></div></div></div></div>`;
+  }).join('');
+}
+function openCreateAccordSheet() { openSheet(`<div class="bs-head"><span class="bs-title">أكورد / مادة مخففة جديدة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body"><div class="fg"><label class="fl">الاسم</label><input class="fi" id="acName"></div><div class="fg"><label class="fl">الموقع في الهرم</label><select class="fsel" id="acNote"><option value="Top">إفتتاحية (Top)</option><option value="Heart" selected>قلب (Heart)</option><option value="Base">قاعدة (Base)</option></select></div><div class="g2"><div class="fg"><label class="fl">الحجم (مل)</label><input class="fi" type="number" id="acVol" value="50"></div><div class="fg"><label class="fl">التركيز %</label><input class="fi" type="number" id="acConc" value="10"></div></div><button class="btn btn-acc btn-block" onclick="createAccord()">إنشاء</button></div>`); }
+function createAccord() {
+  const name = document.getElementById('acName').value.trim(), volume = +document.getElementById('acVol').value, conc = +document.getElementById('acConc').value, note = document.getElementById('acNote').value;
+  if (!name || volume<=0 || conc<=0 || conc>100) return;
+  const acc = {id:uid(), name, note, volume, conc, ingredients:[], saved:false, internalConc:conc, actuals:{}};
+  ST.accords.push(acc); closeSheet(); renderMain(); openAccordDetail(acc.id);
+}
+function openAccordDetail(id) { ST.curAccId = id; renderAccordView(); openView('dvAcc'); }
+function editAccordIcon(aid) {
+  openSheet(`<div class="bs-head"><span class="bs-title">رمز الأكورد</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body" style="text-align:center;"><div style="margin-bottom:16px; color:var(--t2); font-size:13px;">اختر إيموجي يمثل هذا الأكورد:</div><input class="fi" id="accIconInput" value="${getAcc(aid).customIcon || ''}" style="font-size:36px; text-align:center; padding:20px; border-radius:16px; margin-bottom:16px;"><button class="btn btn-acc btn-block" onclick="saveAccordIcon('${aid}')">حفظ الرمز</button></div>`);
+}
+function saveAccordIcon(aid) { const val = document.getElementById('accIconInput').value.trim(); const acc = getAcc(aid); acc.customIcon = val || null; closeSheet(); renderAccordView(); renderMain(); }
+function renderAccordView() {
+  const acc = getAcc(ST.curAccId); if (!acc) return;
+  document.getElementById('dvAccTitle').innerHTML = `<span onclick="editAccordIcon('${acc.id}')" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; background:rgba(255,255,255,0.15); border-radius:8px; margin-left:8px; font-size:16px;" title="تغيير الأيقونة">${getAccordIcon(acc)}</span><span>${acc.name}</span>`;
+  const oilGrams = acc.volume * acc.conc / 100, total = acc.ingredients.reduce((s,i)=>s+i.pct,0), alcoholG = Math.max(0, acc.volume - oilGrams);
+  let ingsHTML = acc.ingredients.map(ing => {
+    const targetMg = (oilGrams * ing.pct / 100) * 1000, m = getIngData(ing), matName = m ? m.name : '—';
+    return `<div style="background:var(--card);padding:12px;border-bottom:1px solid var(--bdr2)"><div class="row-flex" style="margin-bottom:8px"><span style="font-size:14px;font-weight:700;flex:1">${matName}</span><button class="btn btn-danger btn-xs" onclick="removeAccIng('${ing.id}')">حذف</button></div><div class="g3"><div><div style="font-size:11px;color:var(--t2);margin-bottom:2px">النسبة %</div><input class="fi-sm" type="number" value="${ing.pct}" onchange="updateAccIngPct('${ing.id}',+this.value)"></div><div><div style="font-size:11px;color:var(--t2);margin-bottom:2px">المطلوب (mg)</div><div style="font-size:16px;font-weight:800;color:var(--pri);padding-top:4px;direction:ltr;text-align:center">${fmtN(targetMg,1)}</div></div></div></div>`;
+  }).join('');
+  document.getElementById('dvAccBody').innerHTML = `<div class="sec-hdr"><span class="sec-title">المكونات</span><span class="sec-meta">${total}%</span></div>${ingsHTML}<div style="padding:12px"><button class="btn btn-ghost btn-block" onclick="openAddAccIngSheet()">+ إضافة مادة</button></div><div class="alc-box"><div class="alc-lbl">الكحول المطلوب</div><div class="alc-row"><div><div class="alc-val">${fmtN(alcoholG * 1000, 1)}</div><div class="alc-unit">mg</div></div></div></div><div style="padding:14px"><button class="btn btn-danger btn-block" onclick="deleteAccord('${ST.curAccId}')">🗑️ حذف هذه النوتة</button></div>`;
+}
+function openAddAccIngSheet() { openSheet(`<div class="bs-head"><span class="bs-title">إضافة مادة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div style="padding:0">${MATS.map(m=>`<div class="pick-item" onclick="quickAddAccIng('${m.id}','${m.name}')"><div class="mat-icon">${m.e}</div><div><div style="font-size:14px;font-weight:600">${m.name}</div></div></div>`).join('')}</div>`); }
+function quickAddAccIng(matId, name) { getAcc(ST.curAccId).ingredients.push({id:uid(), matId, customName:name, pct:10}); closeSheet(); renderAccordView(); }
+function removeAccIng(iid) { ST.accords.find(a=>a.id===ST.curAccId).ingredients = getAcc(ST.curAccId).ingredients.filter(i=>i.id!==iid); renderAccordView(); }
+function updateAccIngPct(iid, v) { getAcc(ST.curAccId).ingredients.find(i=>i.id===iid).pct = +v; renderAccordView(); }
+function saveAccord() { getAcc(ST.curAccId).saved = true; snack('تم الحفظ ✓'); renderMain(); closeView('dvAcc'); }
+function deleteAccord(id) { if(confirm('هل أنت متأكد من حذف هذه النوتة بشكل نهائي؟')){ ST.accords=ST.accords.filter(a=>a.id!==id); closeView('dvAcc'); renderMain(); snack('تم الحذف 🗑️'); } }
+
+/* ---------------- FORMULAS ---------------- */
+function renderFrags() {
+  if (!ST.fragrances.length) return `<div class="empty-state"><div class="empty-icon">🫙</div><div class="empty-text">لا توجد مشاريع بعد</div></div>`;
+  return ST.fragrances.map(f => `<div class="card card-tap" onclick="openFragView('${f.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:var(--acc)">${f.icon || '🫙'}</div><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;color:var(--pri)">${f.name}</div></div></div></div></div>`).join('');
+}
+function openCreateFragSheet() { openSheet(`<div class="bs-head"><span class="bs-title">عطر جديد</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body"><div class="fg"><label class="fl">الاسم</label><input class="fi" id="fnName"></div><div class="fg"><label class="fl">قصة العطر (اختياري)</label><textarea class="fi" id="fnStory" rows="3" placeholder="اكتب قصة أو إلهام العطر هنا..."></textarea></div><button class="btn btn-acc btn-block" onclick="createFrag()">إنشاء</button></div>`); }
+function createFrag() { const n = document.getElementById('fnName').value.trim(), s = document.getElementById('fnStory')?.value.trim()||''; if(!n) return snack('الاسم مطلوب'); ST.fragrances.push({id:uid(),name:n,story:s,icon:'🫙',versions:[{id:uid(),num:1,ingredients:[]}],lastVerId:null}); closeSheet(); renderMain(); }
+
+function openFragView(fid) { 
+  ST.curFragId = fid; 
+  const f = getFrag(fid);
+  ST.curVerId = f.lastVerId || null; 
+  document.getElementById('dvFragTitleWrap').innerHTML = `<span onclick="editFragIcon('${f.id}')" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; background:rgba(255,255,255,0.15); border-radius:8px; font-size:16px;" title="تغيير الأيقونة">${f.icon || '🫙'}</span><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;">${f.name}</h2>`; 
+  renderFragBody(); 
+  openView('dvFrag'); 
+}
+
+function editFragIcon(fid) {
+  openSheet(`<div class="bs-head"><span class="bs-title">رمز العطر</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body" style="text-align:center;"><div style="margin-bottom:16px; color:var(--t2); font-size:13px;">اختر إيموجي يمثل هذا العطر:</div><input class="fi" id="fragIconInput" value="${getFrag(fid).icon || ''}" style="font-size:36px; text-align:center; padding:20px; border-radius:16px; margin-bottom:16px;"><button class="btn btn-acc btn-block" onclick="saveFragIcon('${fid}')">حفظ الرمز</button></div>`);
+}
+function saveFragIcon(fid) { getFrag(fid).icon = document.getElementById('fragIconInput').value.trim() || '🫙'; closeSheet(); openFragView(fid); renderMain(); }
+
+function renderFragBody() {
+  const f = getFrag(ST.curFragId);
+  if (!f.versions.length) { document.getElementById('dvFragBody').innerHTML = `<div class="empty-state"><div class="empty-icon">🫙</div><div class="empty-text">لا توجد صيغ بعد</div></div><div style="padding:14px"><button class="btn btn-danger btn-block" style="background:var(--red); color:#fff;" onclick="deleteFrag('${f.id}')">🗑️ حذف العطر بالكامل</button></div>`; return; }
+  const storyHTML = f.story ? `<div style="padding:14px 14px 0 14px;"><div style="padding:12px; font-size:13px; background:var(--bg); border-radius:12px; line-height:1.6; border: 1px solid rgba(255,255,255,0.05);"><b style="color:var(--pri);">القصة:</b><br><span style="color:var(--t2);">${f.story.replace(/\n/g, '<br>')}</span></div></div>` : '';
+  if (ST.curVerId && !f.versions.find(v=>v.id===ST.curVerId)) { ST.curVerId = null; f.lastVerId = null; }
+  const chipsHTML = f.versions.slice().reverse().map(v => `<button class="v-chip ${ST.curVerId===v.id?'active':''}" onclick="selectVersion('${v.id}')">#${v.num}</button>`).join('');
+  document.getElementById('dvFragBody').innerHTML = storyHTML + `<div class="v-scroll">${chipsHTML}</div><div id="verContent"></div>`;
+  renderVerInline();
+}
+
+function selectVersion(vid) { 
+  if (ST.curVerId === vid) {
+    const ver = getVer(ST.curFragId, vid);
+    openSheet(`<div class="bs-head"><span class="bs-title">تعديل رقم الصيغة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body"><div class="fg"><label class="fl">رقم الصيغة الحالي: ${ver.num}</label><input class="fi" type="number" id="newVerNum" placeholder="أدخل الرقم الجديد هنا" style="direction:ltr; text-align:center;"></div><button class="btn btn-acc btn-block" onclick="applyNewVerNum('${vid}')">حفظ الرقم الجديد</button></div>`);
+    return;
+  }
+  ST.curVerId = vid; getFrag(ST.curFragId).lastVerId = vid; renderFragBody(); 
+}
+function applyNewVerNum(vid) { const v = document.getElementById('newVerNum').value; if(v!==null && v.trim()!=='' && !isNaN(v)){ getVer(ST.curFragId,vid).num = parseInt(v); closeSheet(); renderFragBody(); } }
+
+function renderVerInline() {
+  if (!ST.curVerId) {
+      document.getElementById('verContent').innerHTML = `<div class="empty-state" style="padding:40px 14px;"><div class="empty-icon" style="opacity:0.5;">👈</div><div class="empty-text">الرجاء اختيار صيغة من الشريط بالأعلى أو إنشاء صيغة جديدة لعرضها هنا.</div></div><div style="padding:14px; display:flex; gap:8px; border-top:1px solid var(--bdr2); margin-top:8px;"><button class="btn btn-danger" style="flex:1; background:var(--red); color:#fff;" onclick="deleteFrag('${ST.curFragId}')">🗑️ حذف العطر بالكامل</button></div>`;
+      return;
+  }
+  const ver = getVer(ST.curFragId, ST.curVerId); if (!ver) return;
+  const tops = ver.ingredients.filter(i => getIngData(i)?.note==='Top');
+  const hearts = ver.ingredients.filter(i => getIngData(i)?.note==='Heart');
+  const bases = ver.ingredients.filter(i => getIngData(i)?.note==='Base');
+  const total = ver.ingredients.reduce((s,i)=>s+i.pct,0);
+  const buildPyrSec = (type, label, items, secPct) => {
+    if (!items.length) return '';
+    return `<div class="pyr-sec"><div class="pyr-head ${type}"><span class="pyr-lbl">${label} <span style="font-weight:800; opacity:0.8; margin-right:4px;">(${fmtN(secPct,1)}%)</span></span></div>${items.map(i => {
+          const m = getIngData(i); if (!m) return '';
+          return `<div class="ing-row" style="grid-template-columns:1fr 56px 28px 24px"><span class="ing-name" onclick="${m.isAcc ? `openAccordDetail('${i.accId}')` : `openMatDetail('${i.mid}')`}" style="cursor:pointer; color:var(--pri); text-decoration:underline; text-decoration-color:var(--bdr); text-underline-offset:4px;">${m.e+' '+m.name}</span><span class="ing-pct">${i.pct}%</span><button class="btn btn-ghost btn-xs" onclick="editIngPct('${i.id}','${ver.id}')">✎</button><button onclick="removeVerIng('${i.id}','${ver.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;font-weight:700">×</button></div>`;
+        }).join('')}</div>`;
+  };
+  document.getElementById('verContent').innerHTML = `<div style="padding:0 14px">${buildPyrSec('top','إفتتاحية',tops, tops.reduce((s,i)=>s+i.pct,0))}${buildPyrSec('heart','قلب',hearts, hearts.reduce((s,i)=>s+i.pct,0))}${buildPyrSec('base','قاعدة',bases, bases.reduce((s,i)=>s+i.pct,0))}</div><div class="total-bar"><div><div class="total-lbl">مجموع النسب</div><div class="total-num">${fmtN(total,1)}%</div></div></div><div style="padding:0 14px 8px; display:flex; gap:8px;"><button class="btn btn-ghost" style="flex:1" onclick="openAddIngSheet('${ver.id}')">+ إضافة مادة</button><button class="btn btn-hdr" style="flex:1; background:var(--pri); color:#fff; border-color:var(--pri);" onclick="copyFormula('${ver.id}')">📋 نسخ الصيغة</button></div><div style="padding:14px; display:flex; gap:8px; border-top:1px solid var(--bdr2); margin-top:8px;"><button class="btn btn-danger" style="flex:1;" onclick="deleteVersion('${ST.curFragId}', '${ver.id}')">🗑️ حذف الصيغة</button><button class="btn btn-danger" style="flex:1; background:var(--red); color:#fff;" onclick="deleteFrag('${ST.curFragId}')">🗑️ حذف العطر</button></div>`;
+}
+
+function newVersion() { const f = getFrag(ST.curFragId); const last = f.versions[f.versions.length-1]; const newVer = { id: uid(), num: (last?.num || 0) + 1, ingredients: last ? last.ingredients.map(i => ({...i, id:uid()})) : [] }; f.versions.push(newVer); ST.curVerId = newVer.id; f.lastVerId = newVer.id; renderFragBody(); }
+function deleteVersion(fid, vid) { if(confirm('هل أنت متأكد من حذف هذه الصيغة؟')){ const f = getFrag(fid); f.versions = f.versions.filter(v => v.id !== vid); ST.curVerId = f.versions.length ? f.versions[f.versions.length-1].id : null; f.lastVerId = ST.curVerId; renderFragBody(); snack('تم حذف الصيغة 🗑️'); } }
+function deleteFrag(fid) { if(confirm('هل أنت متأكد من حذف هذا العطر بالكامل؟')){ ST.fragrances = ST.fragrances.filter(f => f.id !== fid); closeView('dvFrag'); renderMain(); snack('تم حذف العطر 🗑️'); } }
+function openAddIngSheet(vid) { openSheet(`<div class="bs-head"><span class="bs-title">إضافة مادة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div style="padding:0">${MATS.map(m=>`<div class="pick-item" onclick="addIngToVer('${vid}','${m.id}')"><div class="mat-icon">${m.e}</div><div><div style="font-size:14px;font-weight:600">${m.name}</div></div></div>`).join('')}${ST.accords.map(a=>`<div class="pick-item" onclick="addAccToVer('${vid}','${a.id}')"><div class="mat-icon" style="background:#5A3E8C">${getAccordIcon(a)}</div><div><div style="font-size:14px;font-weight:600">${a.name}</div></div></div>`).join('')}</div>`); }
+function addIngToVer(vid, mid) { getVer(ST.curFragId, vid).ingredients.push({id:uid(), mid, pct:5}); closeSheet(); renderVerInline(); }
+function addAccToVer(vid, aid) { getVer(ST.curFragId, vid).ingredients.push({id:uid(), mid:'acc:'+aid, accId:aid, pct:5, isAcc:true}); closeSheet(); renderVerInline(); }
+function removeVerIng(iid, vid) { getVer(ST.curFragId, vid).ingredients = getVer(ST.curFragId, vid).ingredients.filter(i=>i.id!==iid); renderVerInline(); }
+function editIngPct(iid, vid) { const ing = getVer(ST.curFragId, vid).ingredients.find(i=>i.id===iid); openSheet(`<div class="bs-head"><span class="bs-title">تعديل النسبة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body" style="padding-bottom: 35vh; display: flex; flex-direction: column; gap: 14px;"><input class="fi" type="number" id="ingPctVal" value="${ing.pct}" style="text-align:center; font-size:24px; font-weight:800; padding:15px;"><button class="btn btn-acc btn-block" style="padding:15px; font-size:16px;" onclick="applyIngPct('${iid}','${vid}')">تأكيد النسبة ✓</button></div>`); setTimeout(()=>{ const el=document.getElementById('ingPctVal'); if(el){el.focus();el.select();} }, 50); }
+function applyIngPct(iid, vid) { getVer(ST.curFragId, vid).ingredients.find(i=>i.id===iid).pct = +document.getElementById('ingPctVal').value; closeSheet(); renderVerInline(); }
+
+/* ---------------- AI ANALYSIS (THE 5 ALGORITHMS) ---------------- */
+function triggerAnalyze() {
+    if(!ST.curVerId) return snack('الرجاء اختيار صيغة أولاً');
+    const ver = getVer(ST.curFragId, ST.curVerId);
+    if(!ver || !ver.ingredients.length) return snack('الصيغة فارغة لتتمكن من تحليلها');
+
+    let total_cost_usd = 0;
+    let impact_score = 0;
+    let duration_score = 0;
+    let family_sums = {};
+    let prominence_by_main = {};
+    const THRESHOLD = 10; 
+
+    ver.ingredients.forEach(i => {
+        const m = getIngData(i);
+        if(!m || m.isAcc) return; 
+        
+        const pct = i.pct;
+        const gram = (pct / 100) * 16; 
+        total_cost_usd += gram * (m.price || 0);
+
+        const impact = m.impact || 0;
+        const avg = m.avg || 0.1; 
+        const duration = m.sub || 0;
+
+        impact_score += (pct * impact);
+        duration_score += (pct * duration);
+
+        const fMain = m.fMain || '?';
+        const fSub = m.fSub || '?';
+
+        family_sums[fMain] = (family_sums[fMain] || 0) + pct;
+
+        const prom_index = (pct / avg) * impact;
+        
+        if(!prominence_by_main[fMain]) {
+            prominence_by_main[fMain] = { sum_index: 0, max_index: -1, max_ing: null };
+        }
+        prominence_by_main[fMain].sum_index += prom_index;
+        if(prom_index > prominence_by_main[fMain].max_index) {
+            prominence_by_main[fMain].max_index = prom_index;
+            prominence_by_main[fMain].max_ing = m;
+        }
+    });
+
+    const oil_cost_kwd = total_cost_usd * 0.31;
+    const alc_cost_kwd = 84 * 0.001;
+    const total_cost_kwd = oil_cost_kwd + alc_cost_kwd;
+
+    let display_impact = Math.round(impact_score / 100);
+    let display_duration = Math.round(duration_score / 100);
+
+    const sorted_fams = Object.entries(family_sums).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+    let top_3_names = sorted_fams.slice(0,3).map(k => getFamMainName(k)).filter(n=>n!=='عطري' && n!=='مذيبات');
+    
+    // تنسيق الهوية الشمية داخل أقواس صغيرة
+    const identityPills = top_3_names.length 
+        ? top_3_names.map(n => `<span style="background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:12px;">( ${n} )</span>`).join(' ') 
+        : '<span style="background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:12px;">( عطر مخصص )</span>';
+
+    let pyr = { Top: [], Heart: [], Base: [] };
+    Object.values(prominence_by_main).forEach(group => {
+        if (group.sum_index >= THRESHOLD && group.max_ing) {
+            const noteStr = group.max_ing.note; 
+            // الحل: دمج الحرفين الأساسي والفرعي للبحث في القاموس
+            const lookupKey = (group.max_ing.fMain || '') + (group.max_ing.fSub || '');
+            const dispName = getFamSubName(lookupKey);
+            if(pyr[noteStr] && !pyr[noteStr].includes(dispName)) {
+                pyr[noteStr].push(dispName);
+            }
+        }
+    });
+
+    const colors = ['#B7791F', '#1A365D', '#38A169', '#E53E3E', '#805AD5', '#319795', '#A0AEC0', '#ED8936', '#4FD1C5', '#F687B3'];
+    let conic = [];
+    let acc = 0;
+    const total_f_pct = Object.values(family_sums).reduce((a,b)=>a+b, 0) || 1;
+    let legendHTML = '';
+    sorted_fams.forEach((k, idx) => {
+        if(k==='?' || k==='Z') return; 
+        const p = (family_sums[k] / total_f_pct) * 100;
+        if(p < 1) return; 
+        const c = colors[idx % colors.length];
+        conic.push(`${c} ${acc}% ${acc + p}%`);
+        acc += p;
+        legendHTML += `<div class="fam-badge"><span style="color:${c}">●</span> ${getFamMainName(k)} ${p.toFixed(0)}%</div>`;
+    });
+
+    openSheet(`
+        <div class="bs-head"><span class="bs-title">تحليل الذكاء الاصطناعي 🧠</span><button class="close-btn" onclick="closeSheet()">✕</button></div>
+        <div class="bs-body">
+            
+            <div style="text-align:center; padding:16px; background:var(--pri); color:#fff; border-radius:var(--r); margin-bottom:16px;">
+                <div style="font-size:11px; opacity:0.7; letter-spacing:1px; margin-bottom:10px;">الهوية الشمية</div>
+                <div style="font-size:14px; font-weight:800; display:flex; flex-wrap:wrap; justify-content:center; gap:8px; line-height:1.6;">
+                    ${identityPills}
+                </div>
+            </div>
+
+            <div class="anlys-sec">
+                <div class="anlys-title">الهرم العطري الذكي (مُفلتر آلياً)</div>
+                <div style="background:var(--card); border:1px solid var(--bdr); border-radius:var(--r); overflow:hidden;">
+                    ${['Top','Heart','Base'].map(lvl => {
+                        const names = pyr[lvl].join('، ') || '<span style="color:var(--t3); font-weight:400; font-size:12px;">مُدمجة في الخلفية</span>';
+                        const bg = lvl==='Top'?'#F0FFF4':(lvl==='Heart'?'#FFF0F3':'#EBF4FF');
+                        const col = lvl==='Top'?'#276749':(lvl==='Heart'?'#C53030':'#2B6CB0');
+                        const title = lvl==='Top'?'إفتتاحية':(lvl==='Heart'?'قلــــــب':'قاعــــدة');
+                        return `<div style="display:flex; border-bottom:1px solid var(--bdr2);">
+                            <div style="background:${bg}; color:${col}; padding:10px 12px; font-weight:800; font-size:12px; width:75px; text-align:center; display:flex; align-items:center; justify-content:center;">${title}</div>
+                            <div style="padding:10px 12px; font-size:14px; font-weight:700; flex:1; display:flex; align-items:center;">${names}</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+
+            <div class="anlys-sec" style="text-align:center; margin-top:24px;">
+                <div class="anlys-title" style="text-align:right">دائرة العوائل العطرية (ABC)</div>
+                <div style="display:flex; justify-content:center; margin-top:16px;">
+                    <div class="pie-chart" style="background: conic-gradient(${conic.join(', ')});"></div>
+                </div>
+                <div class="fam-legend">${legendHTML}</div>
+            </div>
+
+            <div class="anlys-sec" style="margin-top:24px;">
+                <div class="anlys-title">مؤشرات الأداء التقديرية</div>
+                <div class="g2">
+                    <div style="background:var(--bg); padding:12px; border-radius:var(--r); text-align:center;">
+                        <div style="font-size:11px; color:var(--t2); margin-bottom:4px; font-weight:700;">الفوحان (Impact)</div>
+                        <div style="font-size:20px; font-weight:800; color:var(--pri); direction:ltr;">${display_impact}</div>
+                    </div>
+                    <div style="background:var(--bg); padding:12px; border-radius:var(--r); text-align:center;">
+                        <div style="font-size:11px; color:var(--t2); margin-bottom:4px; font-weight:700;">الثبات (Duration)</div>
+                        <div style="font-size:20px; font-weight:800; color:var(--pri); direction:ltr;">${display_duration}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="anlys-sec" style="margin-top:24px;">
+                <div class="anlys-title">تحليل التكلفة الفورية (100ml @ 16%)</div>
+                <div style="background:var(--card); border:1px solid var(--bdr); border-radius:var(--r); padding:12px;">
+                    <div class="anlys-item"><span class="anlys-lbl">تكلفة الزيت العطري (16g)</span><span class="anlys-val">${fmtN(oil_cost_kwd,3)} د.ك</span></div>
+                    <div class="anlys-item"><span class="anlys-lbl">تكلفة الكحول (84ml)</span><span class="anlys-val">${fmtN(alc_cost_kwd,3)} د.ك</span></div>
+                    <div class="anlys-item" style="border-bottom:none; margin-top:4px; padding-bottom:0;"><span class="anlys-lbl" style="font-weight:800; color:var(--pri);">الإجمالي التقديري</span><span class="anlys-val" style="font-size:18px; color:var(--acc);">${fmtN(total_cost_kwd,3)} د.ك</span></div>
+                </div>
+            </div>
+
+        </div>
+    `);
+}
+
+/* ---------------- PRODUCTIONS ---------------- */
+function renderProds() {
+  if (!ST.productions.length) return `<div class="empty-state"><div class="empty-icon">⚗️</div><div class="empty-text">لا توجد تجارب بعد</div></div>`;
+  return ST.productions.map(p => {
+      const f = getFrag(p.fragId), icon = (f && f.icon) ? f.icon : '⚗️';
+      return `<div class="card card-tap" onclick="openProdView('${p.id}')"><div class="card-body"><div class="row-flex"><div class="mat-icon" style="background:#2D6A4F">${icon}</div><div style="flex:1"><div style="font-size:15px;font-weight:700">${p.fragName}</div><div style="font-size:12px;color:var(--t2)">صيغة #${p.verNum} · ${p.vol}مل</div></div></div></div></div>`;
+  }).join('');
+}
+function openCreateProdSheet() { const frags = ST.fragrances.filter(f=>f.versions.length); if (!frags.length) return; openSheet(`<div class="bs-head"><span class="bs-title">تجربة جديدة</span><button class="close-btn" onclick="closeSheet()">✕</button></div><div class="bs-body"><div class="fg"><label class="fl">العطر</label><select class="fsel" id="pfFrag" onchange="onProdFragChange(this.value)">${frags.map(f=>`<option value="${f.id}">${f.name}</option>`).join('')}</select></div><div class="fg"><label class="fl">رقم الصيغة</label><select class="fsel" id="pfVer">${frags[0].versions.map(v=>`<option value="${v.id}">صيغة #${v.num}</option>`).join('')}</select></div><div class="g2"><div class="fg"><label class="fl">الحجم (مل)</label><input class="fi" type="number" id="pfVol" value="30"></div><div class="fg"><label class="fl">التركيز %</label><input class="fi" type="number" id="pfConc" value="20"></div></div><button class="btn btn-acc btn-block" onclick="createProd()">بدء التجربة</button></div>`); }
+function onProdFragChange(fid) { document.getElementById('pfVer').innerHTML = getFrag(fid).versions.map(v=>`<option value="${v.id}">صيغة #${v.num}</option>`).join(''); }
+function createProd() {
+  const fid = document.getElementById('pfFrag').value, vid = document.getElementById('pfVer').value, vol = +document.getElementById('pfVol').value, conc = +document.getElementById('pfConc').value;
+  const f = getFrag(fid), ver = getVer(fid, vid), snapshot = ver.ingredients.map(i => { const m = getIngData(i); return { id: i.id, pct: i.pct, isAcc: i.isAcc, accId: i.accId, mid: i.mid, name: m ? m.name : 'مادة', e: m ? m.e : '💧', accConc: (m && m.isAcc && m.acc) ? m.acc.conc : null }; });
+  const prod = { id:uid(), fragId:fid, fragName:f.name, verId:vid, verNum:ver.num, vol, conc, status:'active', date:todayStr(), actuals:{ weights:{}, snapshot: snapshot }, actualAlc: '', complete:false };
+  ST.productions.push(prod); closeSheet(); renderMain(); openProdView(prod.id);
+}
+
+function openProdView(id) { 
+  ST.curProdId = id; const p = getProd(id);
+  document.getElementById('dvProdTitle').textContent = p.fragName || 'عطر غير معروف';
+  document.getElementById('dvProdSub').textContent = `صيغة #${p.verNum} · تركيز ${p.conc}% · ${p.vol} مل`;
+  renderProdView(); openView('dvProd'); 
+}
+
+function renderProdView() {
+  const p = getProd(ST.curProdId), f = getFrag(p.fragId), ver = f ? getVer(p.fragId, p.verId) : null;
+  let workingIngredients = null, isSnapshot = false, weightsObj = p.actuals; 
+  if (p.actuals && p.actuals.snapshot) { workingIngredients = p.actuals.snapshot; isSnapshot = true; weightsObj = p.actuals.weights || {}; } else if (ver) { workingIngredients = ver.ingredients; }
+  if (!workingIngredients) { document.getElementById('dvProdBody').innerHTML = `<div class="empty-state" style="margin-top: 40px;"><div class="empty-icon" style="color: var(--yel); opacity:1;">⚠️</div><div class="empty-text" style="font-size: 16px; font-weight: 700; color: var(--pri);">عطر أو صيغة محذوفة</div></div>`; return; }
+
+  const oilG = p.vol * p.conc / 100;
+  let accAlcInOil = 0, totalActualPureOilMg = 0, totalActualAccordAlcMg = 0;
+  workingIngredients.forEach(i => {
+    const act = weightsObj[i.id];
+    if (typeof act === 'number') {
+        if (i.isAcc) { let aConc = isSnapshot ? i.accConc : (getAcc(i.accId)?.conc); if (aConc) { totalActualPureOilMg += act * (aConc / 100); totalActualAccordAlcMg += act * ((100 - aConc) / 100); } else totalActualPureOilMg += act; }
+        else totalActualPureOilMg += act;
+    }
+    if (i.isAcc) { let aConc = isSnapshot ? i.accConc : (getAcc(i.accId)?.conc); if (aConc) accAlcInOil += ((oilG * i.pct / 100) * (100 / aConc)) - (oilG * i.pct / 100); }
+  });
+
+  let ratio = 1;
+  if (ST.recalcMode && ST.recalcMid) {
+     const b = workingIngredients.find(x => x.id === ST.recalcMid);
+     if (b) {
+         let target = oilG * b.pct / 100;
+         let aConc = isSnapshot ? b.accConc : (getIngData(b)?.acc?.conc);
+         if (b.isAcc && aConc) target = target * 100 / aConc;
+         if (target > 0) ratio = (weightsObj[ST.recalcMid] || 0) / (target * 1000);
+     }
+  }
+
+  const totalAlcNeeded = Math.max(0, p.vol - oilG - accAlcInOil) * ratio;
+
+  let rowsHTML = workingIngredients.map(i=>{
+    let mName = isSnapshot ? i.name : (getIngData(i)?.name || 'مادة'), mE = isSnapshot ? i.e : (getIngData(i)?.e || '💧');
+    let baseTargetG = oilG * i.pct / 100;
+    let aConc = isSnapshot ? i.accConc : (getIngData(i)?.acc?.conc);
+    if (i.isAcc && aConc) baseTargetG = baseTargetG * 100 / aConc;
+    let baseTargetMg = baseTargetG * 1000, targetMg = baseTargetMg * ratio; 
+    const actual = weightsObj[i.id] ?? '';
+    
+    let recalcTargetHTML = '';
+    if (ST.recalcMode && ST.recalcMid && ratio !== 1) {
+        if (i.id !== ST.recalcMid) recalcTargetHTML = `<div style="font-size:10px; font-weight:800; color:var(--acc); margin-top:8px; text-align:center; background:var(--acc-l); border-radius:4px; padding:4px;">المطلوب بعد المعايرة: ${fmtN(targetMg,1)} (أضف +${fmtN(targetMg - baseTargetMg,1)})</div>`;
+        else recalcTargetHTML = `<div style="font-size:10px; font-weight:700; color:var(--acc); margin-top:8px; text-align:center;">مادة الأساس للمعايرة</div>`;
+    }
+
+    let errHTML = '';
+    if (actual !== '') {
+       const diff = actual - targetMg, errPct = targetMg > 0 ? (diff / targetMg) * 100 : 0, absErrPct = Math.abs(errPct), impactOnTotalPct = oilG > 0 ? (Math.abs(diff) / (oilG * 1000)) * 100 : 0;
+       let isRed = (targetMg < 50 && absErrPct > 20) || (targetMg >= 50 && targetMg <= 150 && absErrPct > 10) || (targetMg > 150 && absErrPct > 5) || impactOnTotalPct > 1;
+       let c1 = isRed ? 'var(--red)' : (absErrPct <= 2 ? 'var(--grn)' : 'var(--yel)'), c2 = impactOnTotalPct >= 1 ? 'var(--red)' : (impactOnTotalPct <= 0.50 ? 'var(--grn)' : 'var(--yel)');
+       errHTML = `<div style="display:flex; gap:8px; text-align:center;"><div style="display:flex; flex-direction:column; justify-content:center;"><span style="font-size:8px; color:var(--t3);">خطأ المادة</span><span style="font-size:11px; font-weight:800; color:${c1}; direction:ltr;">${errPct>0?'+':''}${errPct.toFixed(1)}%</span></div><div style="display:flex; flex-direction:column; justify-content:center;"><span style="font-size:8px; color:var(--t3);">تأثير كلي</span><span style="font-size:11px; font-weight:800; color:${c2}; direction:ltr;">${diff>0?'+':(diff<0?'-':'')}${impactOnTotalPct.toFixed(2)}%</span></div></div>`;
+    }
+
+    let bgStyle = (ST.recalcMode && ST.recalcMid === i.id) ? 'border: 2px solid var(--acc); background: var(--acc-l);' : '';
+    let clickAct = ST.recalcMode ? `onclick="setRecalcBase('${i.id}')" style="cursor:pointer;"` : '';
+
+    return `<div class="prod-mat" ${clickAct} style="${bgStyle}"><div style="display:flex; align-items:center;"><div class="mat-icon" style="width:36px; height:36px; font-size:18px; margin-left:10px;">${mE}</div><div style="flex:1; display:flex; flex-direction:column; gap:6px;"><div style="font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><span style="font-size:12px; color:var(--t3); font-weight:700; direction:ltr; display:inline-block; margin-left:6px;">${i.pct}%</span>${mName}</div><div style="display:flex; align-items:center; justify-content:space-between;"><div style="font-size:11px; color:var(--t2);">مطلوب: <span style="font-size:17px; font-weight:800; color:var(--pri);">${fmtN(baseTargetMg,1)}</span></div><div style="display:flex; gap:12px; align-items:center;">${errHTML}<input class="fi-sm" type="number" value="${actual}" onchange="updateProdActual('${i.id}',this.value)" ${ST.recalcMode ? 'disabled' : ''} style="width:75px; height:56px; padding:0; text-align:center; font-size:20px; font-weight:800; border-radius:8px; margin:0;" placeholder="0"></div></div></div></div>${recalcTargetHTML}</div>`;
+  }).join('');
+
+  let finalConcHTML = '—', actualAlcMg = parseFloat(p.actualAlc), actualAlcG = actualAlcMg / 1000;
+  if (!isNaN(actualAlcG) && totalActualPureOilMg > 0) finalConcHTML = fmtN(((totalActualPureOilMg / 1000) / ((totalActualPureOilMg / 1000) + actualAlcG + (totalActualAccordAlcMg / 1000))) * 100, 1) + '%';
+
+  document.getElementById('dvProdBody').innerHTML = `<div class="sep"></div>${rowsHTML}<div class="alc-box" style="margin:12px 14px; background:linear-gradient(135deg,#1A365D 0%,#1A202C 100%);"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px; margin-bottom:12px;"><div><div class="alc-lbl">الكحول الصافي المطلوب</div><div class="alc-row"><div><span class="alc-val">${fmtN(totalAlcNeeded * 1000, 1)}</span> <span class="alc-unit">mg</span></div></div></div><div style="text-align:left;"><div class="alc-lbl">التركيز الفعلي المحقق</div><div class="alc-val" style="color:${finalConcHTML !== '—' ? 'var(--grn)' : '#fff'}">${finalConcHTML}</div></div></div><div style="display:flex; justify-content:space-between; align-items:center;"><div class="alc-lbl" style="font-size:12px; font-weight:700;">وزن الكحول المضاف (mg)</div><input class="fi-sm" type="number" style="width:100px; height:40px; font-size:18px; font-weight:800; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:8px;" value="${p.actualAlc !== undefined ? p.actualAlc : ''}" onchange="updateActualAlc('${p.id}', this.value)" placeholder="أدخل هنا"></div></div><div style="padding:14px; display:flex; gap:8px"><button class="btn btn-pri" style="flex:1" onclick="shareProduction('${ST.curProdId}')">📤 مشاركة</button><button class="btn btn-acc" style="flex:1" onclick="closeView('dvProd')">إغلاق</button><button class="btn btn-danger" style="flex:1" onclick="deleteProd('${ST.curProdId}')">🗑️ حذف</button></div>`;
+}
+
+function updateProdActual(iid, v) { const p = getProd(ST.curProdId); if (p.actuals && p.actuals.snapshot) { if (!p.actuals.weights) p.actuals.weights = {}; p.actuals.weights[iid] = v === '' ? '' : +v; } else { p.actuals[iid] = v === '' ? '' : +v; } renderProdView(); }
+function updateActualAlc(pid, val) { const p = getProd(pid); p.actualAlc = val === '' ? '' : +val; if(!p.actuals) p.actuals = {}; p.actuals.actualAlc = p.actualAlc; renderProdView(); }
+
+function shareProduction(pid) {
+   const p = getProd(pid), f = getFrag(p.fragId);
+   let out = `🧪 تجربة عطر: ${p.fragName}\nصيغة #${p.verNum} | الحجم المستهدف: ${p.vol}ml | التركيز المستهدف: ${p.conc}%\n\nالمواد:\n`;
+   let wObj = (p.actuals && p.actuals.snapshot && p.actuals.weights) ? p.actuals.weights : p.actuals;
+   let workingIngredients = (p.actuals && p.actuals.snapshot) ? p.actuals.snapshot : (f ? getVer(p.fragId, p.verId).ingredients : []);
+   workingIngredients.forEach(i => { let mName = i.name || (getIngData(i) ? getIngData(i).name : 'مادة'), target = (p.vol * p.conc / 100) * i.pct / 100; let aConc = i.accConc || (getIngData(i)?.acc?.conc); if (i.isAcc && aConc) target = target * 100 / aConc; out += `• ${mName} (${i.pct}%): مطلوب ${fmtN(target*1000,1)}mg | محقق ${wObj[i.id] ?? 'لم يوزن'}\n`; });
+   if (navigator.share) navigator.share({ title: `تجربة ${p.fragName}`, text: out }).catch(e => fallbackCopyTextToClipboard(out)); else fallbackCopyTextToClipboard(out);
+}
+function toggleRecalcMode() { ST.recalcMode = !ST.recalcMode; if(!ST.recalcMode) ST.recalcMid = null; const btn = document.getElementById('dvProdRcBtn'); if(btn) { btn.style.background = ST.recalcMode ? 'var(--acc)' : ''; btn.style.borderColor = ST.recalcMode ? 'var(--acc)' : ''; } renderProdView(); snack(ST.recalcMode ? 'وضع المعايرة: اضغط على المادة التي أخطأت في وزنها' : 'تم إيقاف المعايرة'); }
+function setRecalcBase(iid) { ST.recalcMid = iid; renderProdView(); }
+function deleteProd(id) { if(confirm('هل أنت متأكد من حذف هذه التجربة نهائياً؟')){ ST.productions = ST.productions.filter(p => p.id !== id); closeView('dvProd'); renderMain(); snack('تم الحذف 🗑️'); } }
+function copyFormula(vid) {
+  const f = getFrag(ST.curFragId), ver = getVer(f.id, vid);
+  const tops = ver.ingredients.filter(i => getIngData(i)?.note==='Top'), hearts = ver.ingredients.filter(i => getIngData(i)?.note==='Heart'), bases = ver.ingredients.filter(i => getIngData(i)?.note==='Base');
+  const formatSec = (t, i, p) => i.length ? `\n​${t} (تمثل ${fmtN(p,1)}%):\n` + i.map(x => `• ${getIngData(x)?.name||'مادة'}: ${fmtN(x.pct,1)}%\n`).join('') : '';
+  let out = `صيغة "${f.name}" #${ver.num} (الزيت العطري الخام 100%)\n` + formatSec('الإفتتاحية', tops, tops.reduce((s,i)=>s+i.pct,0)) + formatSec('القلب', hearts, hearts.reduce((s,i)=>s+i.pct,0)) + formatSec('القاعدة', bases, bases.reduce((s,i)=>s+i.pct,0));
+  fallbackCopyTextToClipboard(out.trim());
+}
+function fallbackCopyTextToClipboard(text) { var ta = document.createElement("textarea"); ta.value = text; ta.style.top = "0"; ta.style.left = "0"; ta.style.position = "fixed"; document.body.appendChild(ta); ta.focus(); ta.select(); try { document.execCommand('copy') ? snack('✅ تم النسخ بنجاح') : snack('❌ فشل النسخ'); } catch (err) { snack('❌ جهازك يمنع النسخ'); } document.body.removeChild(ta); }
+
+let skipHash = false;
+window.addEventListener('popstate', function(e) {
+    if (skipHash) return;
+    skipHash = true;
+    const overlay = document.getElementById('overlay');
+    if (overlay.classList.contains('open')) { overlay.classList.remove('open'); } else { const openViews = Array.from(document.querySelectorAll('.fsv.open')); if (openViews.length > 0) { openViews.sort((a,b) => (parseInt(getComputedStyle(a).zIndex) || 0) - (parseInt(getComputedStyle(b).zIndex) || 0)); openViews[openViews.length - 1].classList.remove('open'); } }
+    if (!location.hash || location.hash === '') { document.querySelectorAll('.fsv.open').forEach(el => el.classList.remove('open')); if (!e.state || !e.state.root) { if (confirm('هل أنت متأكد أنك تريد الخروج من التطبيق؟')) history.back(); else history.pushState({ root: true }, ''); } }
+    setTimeout(() => skipHash = false, 50);
+});
+function openView(id) { document.getElementById(id).classList.add('open'); if(!skipHash) history.pushState({view: id}, '', '#view-' + id); }
+function closeView(id) { document.getElementById(id).classList.remove('open'); if (!skipHash) { skipHash = true; history.back(); setTimeout(() => skipHash = false, 50); } }
+function openSheet(html) { document.getElementById('bsContent').innerHTML = html; document.getElementById('overlay').classList.add('open'); if(!skipHash) history.pushState({sheet: true}, '', '#sheet'); }
+function closeSheet() { document.getElementById('overlay').classList.remove('open'); if (!skipHash) { skipHash = true; history.back(); setTimeout(() => skipHash = false, 50); } }
+function handleOvClick(e) { if (e.target === document.getElementById('overlay')) closeSheet(); }
+
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(()=>console.log('SW failed')); }); }
+window.onload = function() { initApp(); if (!location.hash) { history.pushState({ root: true }, ''); } };
 </script>
 </body>
 </html>
