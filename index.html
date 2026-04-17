@@ -396,9 +396,22 @@ async function initApp() {
      snack('⚠ الرابط السحابي غير متوفر.');
      return;
   }
+
+  // إضافة متحكم زمني لـ 10 ثواني (10000 ميلي ثانية)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
   try {
-    const res = await fetch(GAS_URL);
+    // تمرير إشارة المتحكم مع الطلب
+    const res = await fetch(GAS_URL, { signal: controller.signal });
+    clearTimeout(timeoutId); // إيقاف العداد إذا نجح الاتصال
+
+    if (!res.ok) {
+        throw new Error(`HTTP Error: ${res.status} - ${res.statusText}`);
+    }
+
     const json = await res.json();
+    
     if(json.status === 'success') {
       const d = json.data;
       
@@ -457,10 +470,24 @@ async function initApp() {
 
       document.getElementById('loader').style.display = 'none';
       renderMain();
+    } else {
+        throw new Error("السيرفر أرجع حالة: " + json.status + "\n" + (json.message || "بدون رسالة"));
     }
   } catch (e) {
+    clearTimeout(timeoutId); // إيقاف العداد في حال حدوث خطأ
+    
+    // إخفاء شاشة التحميل لكي نرى الخطأ
     document.getElementById('loader').style.display = 'none';
-    snack('❌ فشل الاتصال بقاعدة البيانات');
+    
+    let errMsg = "";
+    if (e.name === 'AbortError') {
+        errMsg = "تجاوز الاتصال 10 ثواني (Timeout) - خوادم غوغل لم ترد.";
+    } else {
+        errMsg = e.toString() + "\n" + (e.stack || "");
+    }
+    
+    // عرض الخطأ بنسق منبثق لتتمكن من نسخه
+    alert("حدث خطأ في الاتصال، الرجاء نسخ النص التالي وإرساله لي:\n\n" + errMsg);
     console.error(e);
   }
 }
