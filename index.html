@@ -247,18 +247,29 @@ opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;max-width:9
 </style>
 </head>
 <body>
-<div id="loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-  <div class="spinner" style="font-size:56px; margin-bottom:16px;">🧪</div>
-  <div style="font-size:18px; font-weight:700; color:var(--pri); animation: pulse 1.5s infinite;">جاري استدعاء البيانات...</div>
-  
-  <div style="margin-top: 20px; font-size: 14px; font-weight: 700; color: var(--red); background: var(--red-l); padding: 8px 20px; border-radius: 20px; border: 1px solid var(--red);">
-    الوقت المتبقي: <span id="countdownTimer" style="font-size:20px; font-weight:800;">10</span> ثواني
+<div id="loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;">
+  <div id="loaderIcon" class="spinner" style="font-size:56px; margin-bottom:16px;">🧪</div>
+  <div id="loaderText" style="font-size:18px; font-weight:700; color:var(--pri); animation: pulse 1.5s infinite;">جاري البحث عن البيانات...</div>
+
+  <div id="timerContainer" style="margin-top: 20px;">
+    <div style="font-size: 14px; font-weight: 700; color: var(--acc); background: var(--acc-l); padding: 8px 20px; border-radius: 20px; border: 1px solid var(--acc);">
+      تحديث نبض الاتصال: <span id="loopTimer" style="font-size:20px; font-weight:800;">10</span>
+    </div>
+    <p style="font-size: 11px; color: var(--t3); margin-top: 10px;">سيفتح التطبيق تلقائياً فور استجابة السيرفر</p>
   </div>
 
+  <div id="errorArea" style="display:none; margin-top:20px; width:100%; max-width:350px;">
+    <p style="color:var(--red); font-weight:800; margin-bottom:8px;">تفاصيل الخطأ التقني:</p>
+    <textarea id="errorConsole" readonly style="width:100%; height:120px; font-family:monospace; font-size:10px; padding:10px; border-radius:8px; border:1px solid var(--bdr); background:#fff;"></textarea>
+    <button class="btn btn-pri btn-block" style="margin-top:10px;" onclick="location.reload()">🔄 إعادة تشغيل التطبيق</button>
+  </div>
+  
   <div style="position:absolute; bottom:max(env(safe-area-inset-bottom), 30px); font-size:12px; font-weight:800; color:var(--acc); opacity:0.7; letter-spacing:1px; text-transform:uppercase;">
     Developed by Sultan
   </div>
 </div>
+
+
 
 <div id="app">
   <div class="hdr">
@@ -394,44 +405,61 @@ function getAccordIcon(acc) {
   return '🧬';
 }
 
+// --- صائد الأخطاء العام (يظهر أي خطأ برمجي في التطبيق) ---
+window.addEventListener('error', function(event) {
+    const timerContainer = document.getElementById('timerContainer');
+    const errorArea = document.getElementById('errorArea');
+    const loaderText = document.getElementById('loaderText');
+    const errorConsole = document.getElementById('errorConsole');
+    
+    if(timerContainer) timerContainer.style.display = 'none';
+    if(errorArea) errorArea.style.display = 'block';
+    if(loaderText) { loaderText.textContent = '❌ خطأ برمجي غير متوقع'; loaderText.style.color = 'var(--red)'; }
+    if(errorConsole) errorConsole.value = `Global Error: ${event.message}\nLine: ${event.lineno}\nCol: ${event.colno}`;
+});
+
 async function initApp() {
   if(!GAS_URL) {
-     document.getElementById('loader').style.display = 'none';
-     snack('⚠ الرابط السحابي غير متوفر.');
+     document.getElementById('loaderText').textContent = '⚠ الرابط السحابي مفقود';
      return;
   }
 
-  // 1. تشغيل العداد التنازلي على الشاشة
-  let timeLeft = 10;
-  const timerSpan = document.getElementById('countdownTimer');
-  const intervalId = setInterval(() => {
-      timeLeft--;
-      if(timerSpan) timerSpan.textContent = timeLeft;
+  // 1. العداد التجميلي الدوار (10 ثواني)
+  let uiSeconds = 10;
+  const timerSpan = document.getElementById('loopTimer');
+  
+  const uiInterval = setInterval(() => {
+    uiSeconds--;
+    if (uiSeconds < 0) {
+        uiSeconds = 10; 
+        snack('جاري محاولة الربط... 📡');
+    }
+    if(timerSpan) timerSpan.textContent = uiSeconds;
   }, 1000);
 
-  // 2. إعداد مؤقت الفصل البرمجي (10 ثواني)
+  // 2. مهلة الانتظار الحقيقية لغوغل (60 ثانية)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000); 
 
   try {
     const res = await fetch(GAS_URL, { signal: controller.signal });
     
-    // إيقاف العدادات فور وصول الاستجابة
-    clearTimeout(timeoutId);
-    clearInterval(intervalId);
-
-    if (!res.ok) {
-        throw new Error(`HTTP Error: ${res.status} - ${res.statusText}`);
-    }
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status} - ${res.statusText}`);
 
     const json = await res.json();
     
     if(json.status === 'success') {
+      // إيقاف العدادات فور نجاح جلب البيانات
+      clearInterval(uiInterval);
+      clearTimeout(timeoutId);
+
       const d = json.data;
       
       if(d.Raw_Materials) {
         MATS = d.Raw_Materials.map(m => ({
-          id: m.Raw_Materials_Id, name: m.Aroma_Name, family: m.Family_main || m.Family_sub,
+          id: m.Raw_Materials_Id, name: m.Aroma_Name, 
+          family: (m.Family_main||'') + ' ' + (m.Family_sub||''),
+          fMain: m.Family_main || '', fSub: m.Family_sub || '',
           note: m.Pyramid || 'Base', price: parseFloat(m.Price) || 0, sub: parseFloat(m.Duration) || 0,
           impact: parseFloat(m.Impact) || 0, min: parseFloat(m.Min_use) || 0, avg: parseFloat(m.Ave_use) || 0,
           max: parseFloat(m.Max_use) || 0, ifra: parseFloat(m.Ifra) || 100, cas: m.CAS,
@@ -476,8 +504,7 @@ async function initApp() {
             return {
                id: p.Production_Id, fragId: fId, fragName: fName, verId: p.Formula_Id, verNum: vNum,
                vol: parseFloat(p.Target_Volume_ml)||0, conc: parseFloat(p.Target_Concentration_pct)||0,
-               status: p.Status, date: p.Date, actuals: actualsParsed,
-               actualAlc: isNaN(parsedAlc) ? '' : parsedAlc
+               status: p.Status, date: p.Date, actuals: actualsParsed, actualAlc: isNaN(parsedAlc) ? '' : parsedAlc
             };
          });
       }
@@ -485,21 +512,25 @@ async function initApp() {
       document.getElementById('loader').style.display = 'none';
       renderMain();
     } else {
-        throw new Error("السيرفر أرجع حالة: " + json.status);
+        throw new Error("Server Status: " + json.status);
     }
   } catch (e) {
-    // تنظيف الموقتات عند الخطأ
+    // إيقاف العدادات عند الفشل النهائي (بعد 60 ثانية) وإظهار الكونسول
+    clearInterval(uiInterval);
     clearTimeout(timeoutId);
-    clearInterval(intervalId);
     
-    document.getElementById('loader').style.display = 'none';
+    document.getElementById('timerContainer').style.display = 'none';
+    document.getElementById('loaderIcon').style.display = 'none';
     
-    let errMsg = (e.name === 'AbortError') ? "انتهى الوقت (10 ثواني) ولم يرد السيرفر." : e.toString();
-    alert("فشل جلب البيانات:\n\n" + errMsg);
-    console.error(e);
+    document.getElementById('errorArea').style.display = 'block';
+    
+    let detailedError = `Fetch Error: ${e.name}\nMessage: ${e.message}\nStack: ${e.stack}`;
+    document.getElementById('errorConsole').value = detailedError;
+    
+    document.getElementById('loaderText').textContent = '❌ فشل الاتصال النهائي';
+    document.getElementById('loaderText').style.color = 'var(--red)';
   }
 }
-
 
 async function syncData() {
   if(!GAS_URL) { snack('⚠ ضع رابط GAS_URL أولاً'); return; }
