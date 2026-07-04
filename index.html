@@ -886,6 +886,7 @@ function renderVerInline() {
   const tops = ver.ingredients.filter(i => getIngData(i)?.note==='Top');
   const hearts = ver.ingredients.filter(i => getIngData(i)?.note==='Heart');
   const bases = ver.ingredients.filter(i => getIngData(i)?.note==='Base');
+  const unknown = ver.ingredients.filter(i => !getIngData(i));
   const total = ver.ingredients.reduce((s,i)=>s+i.pct,0);
 
   const topPct = tops.reduce((s,i)=>s+i.pct,0);
@@ -894,14 +895,16 @@ function renderVerInline() {
 
   const buildPyrSec = (type, label, items, secPct) => {
     if (!items.length) return '';
-    return `<div class="pyr-sec"><div class="pyr-head ${type}"><span class="pyr-lbl">${label} <span style="font-weight:800; opacity:0.8; margin-right:4px;">(${fmtN(secPct,1)}%)</span></span></div>${items.map(i => {
+    return `<div class="pyr-sec"><div class="pyr-head ${type}"><span class="pyr-lbl">${label} <span style="font-weight:800; opacity:0.8; margin-right:4px;">(${fmtN(secPct,2)}%)</span></span></div>${items.map(i => {
           const m = getIngData(i); if (!m) return '';
           const clickAction = m.isAcc ? `openAccordDetail('${i.accId}')` : `openMatDetail('${i.mid}')`;
           return `<div class="ing-row" style="grid-template-columns:1fr 56px 28px 24px"><span class="ing-name" onclick="${clickAction}" style="cursor:pointer; color:var(--pri); text-decoration:underline; text-decoration-color:var(--bdr); text-underline-offset:4px;">${m.isAcc?m.e+' ':m.e+' '}${m.name}</span><span class="ing-pct">${i.pct}%</span><button class="btn btn-ghost btn-xs" onclick="editIngPct('${i.id}','${ver.id}')">✎</button><button onclick="removeVerIng('${i.id}','${ver.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;font-weight:700">×</button></div>`;
         }).join('')}</div>`;
   };
-  
-  document.getElementById('verContent').innerHTML = `<div style="padding:0 14px">${buildPyrSec('top','إفتتاحية',tops, topPct)}${buildPyrSec('heart','قلب',hearts, heartPct)}${buildPyrSec('base','قاعدة',bases, basePct)}</div><div class="total-bar"><div><div class="total-lbl">مجموع النسب</div><div class="total-num">${fmtN(total,1)}%</div></div></div><div style="padding:0 14px 8px; display:flex; gap:8px;"><button class="btn btn-ghost" style="flex:1" onclick="openAddIngSheet('${ver.id}')">+ إضافة مادة</button><button class="btn btn-hdr" style="flex:1; background:var(--pri); color:#fff; border-color:var(--pri);" onclick="copyFormula('${ver.id}')">📋 نسخ الصيغة</button></div><div style="padding:14px; display:flex; gap:8px; border-top:1px solid var(--bdr2); margin-top:8px;"><button class="btn btn-danger" style="flex:1;" onclick="deleteVersion('${ST.curFragId}', '${ver.id}')">🗑️ حذف الصيغة</button><button class="btn btn-danger" style="flex:1; background:var(--red); color:#fff;" onclick="deleteFrag('${ST.curFragId}')">🗑️ حذف العطر</button></div>`;
+
+  const unknownHTML = unknown.length ? `<div class="pyr-sec"><div class="pyr-head" style="background:#FFF5F5;color:#C53030"><span class="pyr-lbl">مكوّن مفقود ⚠️</span></div>${unknown.map(i=>`<div class="ing-row" style="grid-template-columns:1fr 56px 24px"><span class="ing-name err">مادة محذوفة</span><span class="ing-pct err">${i.pct}%</span><button onclick="removeVerIng('${i.id}','${ver.id}')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;font-weight:700">×</button></div>`).join('')}</div>` : '';
+
+  document.getElementById('verContent').innerHTML = `<div style="padding:0 14px">${buildPyrSec('top','إفتتاحية',tops, topPct)}${buildPyrSec('heart','قلب',hearts, heartPct)}${buildPyrSec('base','قاعدة',bases, basePct)}${unknownHTML}</div><div class="total-bar"><div><div class="total-lbl">مجموع النسب</div><div class="total-num">${fmtN(total,2)}%</div></div></div><div style="padding:0 14px 8px; display:flex; gap:8px;"><button class="btn btn-ghost" style="flex:1" onclick="openAddIngSheet('${ver.id}')">+ إضافة مادة</button><button class="btn btn-hdr" style="flex:1; background:var(--pri); color:#fff; border-color:var(--pri);" onclick="copyFormula('${ver.id}')">📋 نسخ الصيغة</button></div><div style="padding:14px; display:flex; gap:8px; border-top:1px solid var(--bdr2); margin-top:8px;"><button class="btn btn-danger" style="flex:1;" onclick="deleteVersion('${ST.curFragId}', '${ver.id}')">🗑️ حذف الصيغة</button><button class="btn btn-danger" style="flex:1; background:var(--red); color:#fff;" onclick="deleteFrag('${ST.curFragId}')">🗑️ حذف العطر</button></div>`;
 }
 
 function newVersion() {
@@ -1322,11 +1325,11 @@ function copyFormula(vid) {
 
   const formatSection = (title, items, pct) => {
     if(!items.length) return '';
-    let text = `\n​${title} (تمثل ${fmtN(pct,1)}%):\n`;
+    let text = `\n​${title} (تمثل ${fmtN(pct,2)}%):\n`;
     items.forEach(i => {
       const m = getIngData(i);
       const mName = m ? m.name : 'مادة غير معروفة';
-      text += `• ${mName}: ${fmtN(i.pct,1)}%\n`;
+      text += `• ${mName}: ${fmtN(i.pct,2)}%\n`;
     });
     return text;
   };
