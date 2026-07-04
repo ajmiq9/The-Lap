@@ -554,6 +554,35 @@ async function syncData() {
   }
 }
 
+async function syncData() {
+  if(!GAS_URL) { snack('⚠ ضع رابط GAS_URL أولاً'); return; }
+  const statusEl = document.getElementById('syncStatus');
+  statusEl.textContent = 'جاري الحفظ...';
+
+  const payload = { accords: ST.accords, fragrances: ST.fragrances, productions: ST.productions };
+
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const now = new Date().toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'});
+    statusEl.textContent = 'آخر حفظ: ' + now;
+    snack('✅ تم الحفظ السحابي بنجاح');
+  } catch (e) {
+    statusEl.textContent = '❌ فشل الحفظ';
+    snack('حدث خطأ أثناء الاتصال بالخادم');
+  }
+}
+
+// ---- حفظ تلقائي عند مغادرة التطبيق (هوم / تراجع / تبديل تطبيقات) ----
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    syncData();
+  }
+});
+
 function getIngData(ing) {
   if (ing.isAcc) {
     const acc = getAcc(ing.accId);
