@@ -1036,42 +1036,331 @@ function normalizeFormula(vid) {
 function analyzeFormula() {
   const ver = getVer(ST.curFragId, ST.curVerId);
   if (!ver || !ver.ingredients.length) return snack('اختر صيغة تحتوي على مواد أولاً');
-  let totalPct = 0, costPerG = 0, wSub = 0, wImp = 0, warnings = [];
+
+  // 1. محرك الكتلة والتركيز الصارم (يفكك المواد المخففة والأكوردات حسابياً)
+  let totalFormulaPct = 0;
+  let pureAromaticPct = 0;
+  let hiddenDpgPct = 0;
+  let hiddenAlcPct = 0;
+  let costPerG = 0;
+  let warnings = [];
+  let expandedMats = [];
 
   ver.ingredients.forEach(i => {
     const m = getIngData(i);
-    if (!m) return;
-    totalPct += i.pct;
-    const isDil = (!i.isAcc && i.dilPct && i.dilPct < 100);
-    const dilFactor = isDil ? (i.dilPct / 100) : 1;
-    costPerG += (m.price || 0) * (i.pct / 100) * dilFactor;
-    wSub += (m.sub || 0) * i.pct;
-    wImp += (m.impact || 0) * i.pct;
+    if (!m || !i.pct || i.pct <= 0) return;
+    totalFormulaPct += i.pct;
 
-    const pureInFormulaPct = i.pct * dilFactor;
-    const finalIfraAt20Pct = pureInFormulaPct * 0.20;
+    if (i.isAcc && m.acc) {
+      const accConc = (m.acc.conc && m.acc.conc > 0) ? m.acc.conc : 100;
+      const accDilFactor = accConc / 100;
+      const pureAccInFormula = i.pct * accDilFactor;
+      const carrierInAcc = i.pct * (1 - accDilFactor);
 
-    if (!i.isAcc && m.ifra && finalIfraAt20Pct > m.ifra) {
-      warnings.push(`⚠️ <b>${m.name}</b>: نسبتها في المنتج النهائي (بتركيز عطر 20%) هي <b>${fmtN(finalIfraAt20Pct,3)}%</b> وتتجاوز حد IFRA المسموح (<b>${m.ifra}%</b>)`);
-    } else if (!i.isAcc && m.max && pureInFormulaPct > m.max) {
-      warnings.push(`🔸 <b>${m.name}</b>: النسبة الصافية بالزيت (${fmtN(pureInFormulaPct,2)}%) أعلى من أقصى استخدام موصى به (${m.max}%)`);
+      if ((m.acc.solvent || 'Alcohol') === 'Alcohol') hiddenAlcPct += carrierInAcc;
+      else hiddenDpgPct += carrierInAcc;
+
+      pureAromaticPct += pureAccInFormula;
+      costPerG += (m.price || 0) * (pureAccInFormula / 100);
+
+      // تفكيك مواد الأكورد الداخلية لشمها داخل المحرك الشمي
+      const accIngs = m.acc.ingredients || [];
+      const accTotal = accIngs.reduce((s, x) => s + (x.pct || 0), 0) || 100;
+      if (accIngs.length > 0) {
+        accIngs.forEach(ai => {
+          const rm = getMat(ai.matId);
+          if (rm && ai.pct > 0) {
+            const subPurePct = pureAccInFormula * (ai.pct / accTotal);
+            expandedMats.push({ mat: rm, purePct: subPurePct, rawPct: i.pct, fromAcc: m.name });
+          }
+        });
+      } else {
+        expandedMats.push({ mat: m, purePct: pureAccInFormula, rawPct: i.pct, fromAcc: null });
+      }
+    } else {
+      const isDil = (i.dilPct && i.dilPct < 100);
+      const dilFactor = isDil ? (i.dilPct / 100) : 1;
+      const pureMatPct = i.pct * dilFactor;
+      const carrierPct = i.pct * (1 - dilFactor);
+
+      if (isDil) {
+        if ((i.solvent || 'DPG') === 'Alcohol') hiddenAlcPct += carrierPct;
+        else hiddenDpgPct += carrierPct;
+      }
+
+      pureAromaticPct += pureMatPct;
+      costPerG += (m.price || 0) * (pureMatPct / 100);
+
+      // فحص IFRA على أساس تركيز 20% في المنتج النهائي
+      const finalIfraAt20Pct = pureMatPct * 0.20;
+      if (m.ifra && finalIfraAt20Pct > m.ifra) {
+        warnings.push(`🚨 <b>${m.name}</b>: نسبتها الصافية في العطر النهائي (تركيز 20%) هي <b>${fmtN(finalIfraAt20Pct,3)}%</b> وتتجاوز حد IFRA (<b>${m.ifra}%</b>)`);
+      } else if (m.max && pureMatPct > m.max) {
+        warnings.push(`🔸 <b>${m.name}</b>: النسبة الصافية بالزيت (${fmtN(pureMatPct,2)}%) تتجاوز أقصى استخدام موصى به (${m.max}%)`);
+      }
+
+      expandedMats.push({ mat: m, purePct: pureMatPct, rawPct: i.pct, fromAcc: null });
     }
   });
 
-  const avgSub = totalPct > 0 ? (wSub / totalPct) : 0;
-  const avgImp = totalPct > 0 ? (wImp / totalPct) : 0;
+  // دمج المواد المتكررة (في حال وجود مادة مضافة منفردة وموجودة أيضاً داخل أكورد)
+  let mergedMap = {};
+  expandedMats.forEach(item => {
+    const key = item.mat.id || item.mat.name;
+    if (!mergedMap[key]) {
+      mergedMap[key] = { mat: item.mat, purePct: 0, rawPct: 0 };
+    }
+    mergedMap[key].purePct += item.purePct;
+    mergedMap[key].rawPct += item.rawPct;
+  });
+  let activeItems = Object.values(mergedMap).filter(x => x.purePct > 0);
+
+  if (!activeItems.length) return snack('لا توجد مواد فعالة كافية للتحليل');
+
+  // 2. المحرك الشمي التقديري (Stevens' Power Law + منحنى التبخر والتفتح الزمني)
+  let wSub = 0, wImp = 0, totalPureWeight = 0;
+
+  activeItems.forEach(item => {
+    const m = item.mat;
+    const p = item.purePct;
+    totalPureWeight += p;
+
+    const imp = Math.max(parseFloat(m.impact) || 5, 1);
+    const dur = Math.max(parseFloat(m.sub) || 24, 1);
+    const avg = (parseFloat(m.avg) && parseFloat(m.avg) > 0) ? parseFloat(m.avg) : 5;
+    const note = m.note || 'Heart';
+
+    wSub += dur * p;
+    wImp += imp * p;
+
+    // حساب الجرعة النسبية مع كبح التطرف (Damped Relative Dose)
+    const rawRatio = p / avg;
+    const clampedRatio = Math.max(0.2, Math.min(rawRatio, 6.0));
+    const doseFactor = Math.pow(clampedRatio, 0.55);
+
+    // حساب القوة الشمية الأولية (I0)
+    const abundanceFactor = Math.pow(p, 0.60);
+    const impactFactor = Math.pow(imp, 1.15);
+    const I0 = abundanceFactor * doseFactor * impactFactor;
+
+    // تقدير عمر النصف الشمي على الجلد (Half-life H بالساعات) ومعامل الانتشار الأولي
+    let H = 4.0;
+    let bTop = 1.0, bHeart = 1.0, bBase = 1.0;
+    if (note === 'Top') {
+      H = Math.max(0.45, Math.min(3.0, dur / 8));
+      bTop = 1.40; bHeart = 0.80; bBase = 0.25;
+    } else if (note === 'Heart') {
+      H = Math.max(2.0, Math.min(10.0, dur / 9));
+      bTop = 0.85; bHeart = 1.30; bBase = 0.85;
+    } else {
+      H = Math.max(6.0, Math.min(36.0, dur / 10));
+      bTop = 0.45; bHeart = 0.95; bBase = 1.40; // تتفتح القاعدة مع حرارة الجلد وتبخر الافتتاحية
+    }
+
+    // معادلة التناقص الأسي I(t) = I0 * B(t) * 2^(-t / H)
+    item.I0 = I0;
+    item.iTop = I0 * bTop * Math.pow(2, -0.25 / H);   // عند 0 - 15 دقيقة (t = 0.25h)
+    item.iHeart = I0 * bHeart * Math.pow(2, -2.0 / H); // عند 30 د - 3 ساعات (t = 2.0h)
+    item.iBase = I0 * bBase * Math.pow(2, -8.0 / H);   // عند 3 - 8+ ساعات (t = 8.0h)
+    item.totalSensory = item.iTop * 0.25 + item.iHeart * 0.40 + item.iBase * 0.35;
+
+    // استخراج الإيحاء الشمي المقروء للمادة
+    let cleanOdor = '';
+    if (m.odesc && m.odesc.trim() !== '' && m.odesc !== '—') {
+      cleanOdor = m.odesc.split(/[،,.؛\n]/)[0].trim();
+    }
+    const famLabel = (m.fSub || m.fMain || m.family || '').trim();
+    item.scentTag = cleanOdor ? `${cleanOdor} (${m.name})` : (famLabel ? `${famLabel} - ${m.name}` : m.name);
+    item.shortTag = cleanOdor || famLabel || m.name;
+    item.famKey = (m.fMain || m.fSub || m.family || 'أخرى').trim();
+    item.subFamKey = (m.fSub || m.fMain || 'عام').trim();
+  });
+
+  const sumTop = activeItems.reduce((s, x) => s + x.iTop, 0) || 1;
+  const sumHeart = activeItems.reduce((s, x) => s + x.iHeart, 0) || 1;
+  const sumBase = activeItems.reduce((s, x) => s + x.iBase, 0) || 1;
+  const sumTotalSensory = activeItems.reduce((s, x) => s + x.totalSensory, 0) || 1;
+
+  activeItems.forEach(x => {
+    x.shareTop = (x.iTop / sumTop) * 100;
+    x.shareHeart = (x.iHeart / sumHeart) * 100;
+    x.shareBase = (x.iBase / sumBase) * 100;
+    x.shareTotal = (x.totalSensory / sumTotalSensory) * 100;
+  });
+
+  // 3. مترجم الإيحاءات من 3 مستويات (الأساسية، الداعمة/الجسور، البصمة المميزة)
+  const sortedByTotal = [...activeItems].sort((a, b) => b.shareTotal - a.shareTotal);
+  const coreNotes = sortedByTotal.filter(x => x.shareTotal >= 14).slice(0, 4);
+  if (coreNotes.length === 0 && sortedByTotal.length > 0) coreNotes.push(sortedByTotal[0]);
+
+  const supportNotes = sortedByTotal.filter(x => !coreNotes.includes(x) && (x.shareTotal >= 5 || x.purePct >= 6)).slice(0, 4);
+
+  const getStageSummary = (stageKey, shareKey) => {
+    const topInStage = [...activeItems].sort((a, b) => b[stageKey] - a[stageKey]).slice(0, 3);
+    return topInStage.map(x => `<span style="display:inline-block;background:var(--bg);padding:3px 8px;border-radius:6px;margin:2px;font-size:11px;border:1px solid var(--bdr)"><b>${x.shortTag}</b> <span style="color:var(--t3);font-size:10px">(${x.mat.name} ${fmtN(x[shareKey],0)}%)</span></span>`).join(' ');
+  };
+
+  // تجميع العائلات العطرية لمعرفة هوية العطر
+  let famScores = {};
+  activeItems.forEach(x => {
+    const fk = x.famKey || 'عطرية';
+    famScores[fk] = (famScores[fk] || 0) + x.shareTotal;
+  });
+  const topFamilies = Object.entries(famScores).sort((a, b) => b[1] - a[1]);
+  const mainFam1 = topFamilies[0] ? topFamilies[0][0] : 'متوازن';
+  const mainFam2 = topFamilies[1] && topFamilies[1][1] >= 15 ? ` - ${topFamilies[1][0]}` : '';
+
+  const topLeader = [...activeItems].sort((a, b) => b.iTop - a.iTop)[0];
+  const heartLeader = [...activeItems].sort((a, b) => b.iHeart - a.iHeart)[0];
+  const baseLeader = [...activeItems].sort((a, b) => b.iBase - a.iBase)[0];
+
+  const generalImpression = `طابع <b>${mainFam1}${mainFam2}</b>، يفتتح بحضور واضح من <b>${topLeader ? topLeader.shortTag : 'النوتات العليا'}</b>، ثم يتدرج عبر قلب يرتكز على <b>${heartLeader ? heartLeader.shortTag : 'النوتات الوسطى'}</b>، ليستقر في النهاية على قاعدة من <b>${baseLeader ? baseLeader.shortTag : 'الأخشاب والمسك'}</b>.`;
+
+  const signatureContrast = (topLeader && baseLeader && topLeader.mat.id !== baseLeader.mat.id)
+    ? `التباين الحسي بين <b>${topLeader.mat.name}</b> في الانطلاقة و<b>${baseLeader.mat.name}</b> في الاستقرار النهائي، مدعوماً بـ ${supportNotes.length ? supportNotes.map(s=>s.mat.name).slice(0,2).join(' و') : 'توازن المكونات'} كجسر يربط مراحل العطر.`
+    : `يرتكز العطر على خط شمي متجانس بقيادة <b>${coreNotes[0]?.mat.name || 'المكونات الأساسية'}</b> من الرشة الأولى وحتى الاستقرار.`;
+
+  // 4. التشخيص الفني واكتشاف العيوب والتناغم
+  let diagnostics = [];
+  let expertTips = [];
+
+  // أ. فحص الهيمنة في كل مرحلة زمنية
+  if (topLeader && topLeader.shareTop > 52 && activeItems.length > 2) {
+    diagnostics.push(`🔸 <b>هيمنة في الافتتاحية:</b> مادة <b>${topLeader.mat.name}</b> تستحوذ على ${fmtN(topLeader.shareTop,0)}% من الانطباع الأول وقد تغطي على تفاصيل البداية.`);
+    expertTips.push(`تخفيف جرعة <b>${topLeader.mat.name}</b> قليلاً أو دعمها بمادة حمضية/هوائية مساندة سيمنح الافتتاحية أبعاداً أعمق.`);
+  }
+  if (baseLeader && baseLeader.shareBase > 55 && activeItems.length > 2) {
+    diagnostics.push(`🔸 <b>هيمنة في القاعدة:</b> مادة <b>${baseLeader.mat.name}</b> تسيطر على ${fmtN(baseLeader.shareBase,0)}% من رائحة الاستقرار النهائي.`);
+  }
+
+  // ب. فحص الفجوة الشمية عبر الزمن (Olfactory Drop)
+  const normHeartVsTop = sumHeart / sumTop;
+  const normBaseVsHeart = sumBase / sumHeart;
+  if (normHeartVsTop < 0.42) {
+    diagnostics.push(`⚠️ <b>فجوة شمية بعد الافتتاحية:</b> الحضور الشمي ينخفض بشكل حاد بعد أول 20 دقيقة بسبب سرعة تطاير البداية قبل تفتح القلب.`);
+    expertTips.push(`يُنصح بإضافة مادة جسرية في القلب (مثل Hedione أو Iso E Super أو نوتة زهرية/تابلية متوسطة الثبات) لربط الافتتاحية بالقاعدة.`);
+  } else if (normBaseVsHeart < 0.35) {
+    diagnostics.push(`⚠️ <b>ضعف في الاستقرار النهائي (Drydown):</b> العطر يفقد معظم قوته الشمية بعد 3 ساعات لقلّة المثبتات القوية.`);
+    expertTips.push(`عزّز نوتات القاعدة بمثبتات ذات ثبات عالٍ (مثل المسك، العنبر الجاف، أو الأخشاب) لإطالة عمر العطر.`);
+  } else {
+    diagnostics.push(`✅ <b>تدرج زمني متماسك:</b> انتقال سلس ومتوازن للطاقة الشمية بين الافتتاحية والقلب والقاعدة.`);
+  }
+
+  // ج. كاشف تكدس وتكرار العائلات الفرعية (Redundancy)
+  let subFamCount = {};
+  activeItems.forEach(x => {
+    if (!subFamCount[x.subFamKey]) subFamCount[x.subFamKey] = [];
+    subFamCount[x.subFamKey].push(x.mat.name);
+  });
+  Object.entries(subFamCount).forEach(([sf, names]) => {
+    if (names.length >= 3 && sf !== 'عام' && sf !== '') {
+      diagnostics.push(`🔄 <b>تزاحم في عائلة (${sf}):</b> وجود ${names.length} مواد من نفس الخط (${names.join('، ')}) قد يسبب التباساً أو ضبابية في وضوح النوتة.`);
+      expertTips.push(`جرب تقليص إحدى مواد عائلة <b>${sf}</b> والتركيز على مادة قائدة واحدة لزيادة نقاء الرائحة (Clarity).`);
+    }
+  });
+
+  // د. فحص التناغم (Synergy) من عمود Blend_with
+  let synergies = [];
+  for (let a = 0; a < activeItems.length; a++) {
+    const bw = (activeItems[a].mat.blend || '').toLowerCase();
+    if (!bw) continue;
+    for (let b = 0; b < activeItems.length; b++) {
+      if (a === b) continue;
+      const bName = (activeItems[b].mat.name || '').toLowerCase();
+      const bFam = (activeItems[b].mat.fSub || activeItems[b].mat.fMain || '').toLowerCase();
+      if ((bName.length > 2 && bw.includes(bName)) || (bFam.length > 3 && bw.includes(bFam))) {
+        const pair = [activeItems[a].mat.name, activeItems[b].mat.name].sort().join(' + ');
+        if (!synergies.includes(pair)) synergies.push(pair);
+      }
+    }
+  }
+  if (synergies.length > 0) {
+    diagnostics.push(`✨ <b>تناغم مسجل بقاعدة بياناتك:</b> توافق ممتاز بين (${synergies.slice(0, 3).join(' ، ')}).`);
+  }
+
+  // هـ. تقييم حِمل المذيبات الصافي (DPG / Solvents)
+  const dpgRatioInOil = totalFormulaPct > 0 ? (hiddenDpgPct / totalFormulaPct) * 100 : 0;
+  if (dpgRatioInOil > 15) {
+    diagnostics.push(`💧 <b>حِمل المذيبات الزيتية مرتفع (${fmtN(dpgRatioInOil,1)}% من المركز):</b> كمية الـ DPG/المذيبات الداخلة من المواد المخففة قد تثقّل العطر وتقلل من فوحانه الأولي.`);
+    expertTips.push(`استبدل إحدى المواد المخففة بـ 10% بنسخة أعلى تركيزاً (50% أو بيور) لتحرير فوحان العطر.`);
+  } else if (hiddenDpgPct > 0) {
+    diagnostics.push(`💧 <b>حِمل المذيبات متوازن:</b> المذيبات الحاملة داخل المواد المخففة تمثل <b>${fmtN(dpgRatioInOil,1)}%</b> من الزيت (تساعد على التثبيت دون كتم الفوحان).`);
+  }
+
+  if (expertTips.length === 0) {
+    expertTips.push(`البنية الحالية متزنة؛ يمكنك عمل تجربة مصغرة ومراقبة تطور نوتة <b>${heartLeader ? heartLeader.mat.name : 'القلب'}</b> بعد التعتيق لمدة أسبوعين.`);
+  }
+
+  const avgSub = totalPureWeight > 0 ? (wSub / totalPureWeight) : 0;
+  const avgImp = totalPureWeight > 0 ? (wImp / totalPureWeight) : 0;
+
   openSheet(`
-    <div class="bs-head"><span class="bs-title">🧠 تحليل الصيغة #${ver.num}</span><button class="close-btn" onclick="closeSheet()">✕</button></div>
+    <div class="bs-head">
+      <span class="bs-title">🧠 التحليل الشمي التقديري #${ver.num}</span>
+      <button class="close-btn" onclick="closeSheet()">✕</button>
+    </div>
     <div class="bs-body">
+      <div style="font-size:10px;color:var(--t3);margin-bottom:10px;text-align:center;">
+        تحليل شمي تقديري مبني على معادلات القوة الشمية ومنحنيات التطاير في قاعدة بياناتك
+      </div>
+
+      <div class="anlys-sec" style="background:var(--pri-l);padding:12px;border-radius:12px;border-right:4px solid var(--pri);">
+        <div style="font-size:11px;font-weight:800;color:var(--pri);margin-bottom:4px;">🎙️ الانطباع العام والبصمة</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--t1);">${generalImpression}</div>
+        <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-top:6px;padding-top:6px;border-top:1px dashed var(--bdr);">
+          <b>البصمة المميزة:</b> ${signatureContrast}
+        </div>
+      </div>
+
       <div class="anlys-sec">
-        <div class="anlys-title">المؤشرات الفنية والتكلفة</div>
+        <div class="anlys-title">👃 مستويات الإيحاءات المشمومة</div>
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px;">أ. النوتات الأساسية المسيطرة:</div>
+          <div>${coreNotes.map(x => `<span class="badge badge-acc" style="margin:2px;font-size:11px;">${x.mat.e} ${x.shortTag} · ${x.mat.name} (${fmtN(x.shareTotal,0)}%)</span>`).join(' ')}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px;">ب. النوتات الداعمة والجسور:</div>
+          <div>${supportNotes.length ? supportNotes.map(x => `<span class="badge" style="background:var(--bdr2);color:var(--t1);margin:2px;font-size:11px;">${x.mat.e} ${x.shortTag} (${x.mat.name})</span>`).join(' ') : '<span style="font-size:12px;color:var(--t3)">لا توجد نوتات ثانوية منفصلة</span>'}</div>
+        </div>
+      </div>
+
+      <div class="anlys-sec">
+        <div class="anlys-title">⏳ التطور الشمي المتوقع مع الزمن</div>
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:800;color:#276749;margin-bottom:3px;">• الافتتاحية (0 إلى 15 دقيقة):</div>
+          <div>${getStageSummary('iTop', 'shareTop')}</div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:800;color:#C53030;margin-bottom:3px;">• القلب الفعلي (30 دقيقة إلى 3 ساعات):</div>
+          <div>${getStageSummary('iHeart', 'shareHeart')}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:800;color:#2B6CB0;margin-bottom:3px;">• القاعدة والاستقرار (3 إلى 8+ ساعات):</div>
+          <div>${getStageSummary('iBase', 'shareBase')}</div>
+        </div>
+      </div>
+
+      <div class="anlys-sec">
+        <div class="anlys-title">🔬 التشخيص الفني للصيغة</div>
+        ${diagnostics.map(d => `<div style="font-size:12px;padding:7px 10px;background:var(--bg);border-radius:8px;margin-bottom:6px;line-height:1.5;border:1px solid var(--bdr2)">${d}</div>`).join('')}
+      </div>
+
+      <div class="anlys-sec" style="background:var(--acc-l);padding:12px;border-radius:12px;border:1px solid rgba(183,121,31,0.3);">
+        <div style="font-size:11px;font-weight:800;color:var(--acc);margin-bottom:4px;">💡 اقتراح الخبير لتطوير الصيغة</div>
+        ${expertTips.map(t => `<div style="font-size:12px;color:var(--t1);line-height:1.6;">• ${t}</div>`).join('')}
+      </div>
+
+      <div class="anlys-sec">
+        <div class="anlys-title">⚖️ محرك الكتلة والتكلفة الدقيق</div>
+        <div class="anlys-item"><span class="anlys-lbl">الزيت العطري الصافي (Pure Aromatic)</span><span class="anlys-val">${fmtN(pureAromaticPct, 2)}%</span></div>
+        <div class="anlys-item"><span class="anlys-lbl">مذيبات حاملة داخلة (DPG/IPM/Alc)</span><span class="anlys-val">${fmtN(hiddenDpgPct + hiddenAlcPct, 2)}%</span></div>
         <div class="anlys-item"><span class="anlys-lbl">تكلفة 1 غرام زيت عطري</span><span class="anlys-val">$${fmtN(costPerG, 2)}</span></div>
         <div class="anlys-item"><span class="anlys-lbl">تكلفة زجاجة 50 مل (تركيز 20%)</span><span class="anlys-val">$${fmtN(costPerG * 10, 2)}</span></div>
-        <div class="anlys-item"><span class="anlys-lbl">متوسط الثبات المتوقع</span><span class="anlys-val">${fmtN(avgSub, 1)} ساعة</span></div>
-        <div class="anlys-item"><span class="anlys-lbl">قوة الفوحان والتأثير</span><span class="anlys-val">${fmtN(avgImp, 1)} / 10</span></div>
+        <div class="anlys-item"><span class="anlys-lbl">مؤشر الثبات والانتشار الموزون</span><span class="anlys-val">${fmtN(avgSub, 0)}h · ${fmtN(avgImp, 1)}/10</span></div>
       </div>
+
       <div class="anlys-sec">
-        <div class="anlys-title">فحص الأمان (IFRA على تركيز عطر 20%)</div>
+        <div class="anlys-title">🛡️ فحص الأمان (IFRA على تركيز عطر 20%)</div>
         ${warnings.length ? warnings.map(w=>`<div style="font-size:12px;padding:8px;background:var(--red-l);color:var(--red);border-radius:8px;margin-bottom:6px;line-height:1.5">${w}</div>`).join('') : `<div style="font-size:13px;color:var(--grn);font-weight:700">✅ جميع المواد آمنة ضمن حدود IFRA (لتركيز 20%)</div>`}
       </div>
     </div>
